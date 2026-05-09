@@ -7,7 +7,6 @@ export const metadata: Metadata = {
 };
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
-const PLATFORM_URL = 'https://next-app-ochre-zeta.vercel.app';
 
 function CodeBlock({ code, label, lang = 'ts' }: { code: string; label?: string; lang?: string }) {
   return (
@@ -136,26 +135,38 @@ userHash: a1b2c3d4...   ← same for all your agents`}
         </Section>
 
         {/* Step 3 — Initialize once */}
-        <Section tag="03" title="Initialize once — at app startup">
+        <Section tag="03" title="Initialize — zero config">
           <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
-            Pass credentials in the constructor. <code style={mono}>platform</code> is optional — the SDK auto-detects MCP from your environment.
+            By default the SDK reads credentials from env vars and uses the production Zero URL. No constructor arguments needed.
           </p>
           <CodeBlock
-            label="TypeScript"
+            label="server.ts (e.g. your MCP server)"
             code={`import { ZeroGateSDK } from '@zero-gate/sdk';
 
-const zero = new ZeroGateSDK({
-  apiKey:         process.env.ZERO_API_KEY!,
-  userHash:       process.env.ZERO_USER_HASH!,
-  platformApiUrl: '${PLATFORM_URL}',
-  // platform: 'mcp' — auto-detected if @modelcontextprotocol/sdk is installed
-  //           'whatsapp' | 'telegram' | 'slack' | 'api' | 'custom'
-});`}
+// Reads ZERO_API_KEY + ZERO_USER_HASH from env automatically.
+// Auto-detects platform ('mcp' if @modelcontextprotocol/sdk is installed).
+const zero = new ZeroGateSDK();`}
           />
+          <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 18px', lineHeight: 1.7 }}>
+            Override only if needed: <code style={{ color: 'var(--text-dim)' }}>{`new ZeroGateSDK({ apiKey, userHash, platformApiUrl })`}</code>
+          </p>
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.7 }}>
+            The user connecting to your MCP server provides the credentials via Claude Desktop config:
+          </p>
           <CodeBlock
-            label=".env"
-            code={`ZERO_API_KEY=sk_abc1234...
-ZERO_USER_HASH=a1b2c3d4...`}
+            label="claude_desktop_config.json"
+            code={`{
+  "mcpServers": {
+    "your-mcp-server": {
+      "command": "node",
+      "args": ["server.js"],
+      "env": {
+        "ZERO_API_KEY":   "sk_abc1234...",
+        "ZERO_USER_HASH": "a1b2c3d4..."
+      }
+    }
+  }
+}`}
           />
         </Section>
 
@@ -211,12 +222,8 @@ await sendMessage(result.token, 'Hello from agent!');`}
             code={`import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ZeroGateSDK } from '@zero-gate/sdk';
 
-const zero = new ZeroGateSDK({
-  apiKey:         process.env.ZERO_API_KEY!,
-  userHash:       process.env.ZERO_USER_HASH!,
-  platformApiUrl: '${PLATFORM_URL}',
-  // platform auto-detected as 'mcp' ✓
-});
+// Zero-config: reads env vars set by the user in Claude Desktop config.
+const zero = new ZeroGateSDK();
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const result = await zero.run({
