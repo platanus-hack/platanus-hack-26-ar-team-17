@@ -1,11 +1,5 @@
-import type { Metadata } from 'next';
-import KycClient from './KycClient';
-
-export const metadata: Metadata = {
-  title: 'Verify Identity',
-  description: 'Complete identity verification to start using Zero.',
-};
+import { redirect } from 'next/navigation';
 
 export default function KycPage() {
-  return <KycClient />;
+  redirect('/onboard?step=2');
 }
