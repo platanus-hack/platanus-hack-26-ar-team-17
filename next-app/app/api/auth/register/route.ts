@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (error || !user) return NextResponse.json({ error: 'registration_failed' }, { status: 500 });
+  if (error || !user) return NextResponse.json({ error: 'registration_failed', detail: error?.message }, { status: 500 });
 
   const token = await issueUserToken(user.id);
   return NextResponse.json({ token, userId: user.id }, { status: 201 });
