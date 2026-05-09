@@ -11,7 +11,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "node ./node_modules/typescript/bin/tsc",
+    "build": "node ./scripts/build.cjs",
     "test": "node ./scripts/run-tests.cjs",
     "integration": "node ./node_modules/ts-node/dist/bin.js integration.ts",
     "prepublishOnly": "npm run build"
