@@ -4,12 +4,16 @@
   "description": "Zero Gate SDK — intercepta requests de agentes y valida contra Platform API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
+    "build": "node ./node_modules/typescript/bin/tsc",
+    "test": "node ./scripts/run-tests.cjs",
+    "integration": "node ./node_modules/ts-node/dist/bin.js integration.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [],
