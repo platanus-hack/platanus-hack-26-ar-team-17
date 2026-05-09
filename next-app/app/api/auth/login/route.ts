@@ -19,5 +19,5 @@ export async function POST(req: NextRequest) {
   if (!valid) return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
 
   const token = await issueUserToken(user.id);
-  return NextResponse.json({ token, userId: user.id });
+  return NextResponse.json({ token, userId: user.id, kycStatus: user.kyc_status });
 }

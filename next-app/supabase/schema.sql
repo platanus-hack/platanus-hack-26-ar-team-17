@@ -3,13 +3,19 @@
 create type key_status as enum ('ACTIVE', 'REVOKED');
 create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED');
 create type rule_type as enum ('FORBIDDEN_ACTION', 'FORBIDDEN_KEYWORD', 'FORBIDDEN_PATTERN');
+create type kyc_status as enum ('PENDING', 'IN_REVIEW', 'VERIFIED', 'REJECTED');
 
 create table users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   password text not null,
+  kyc_status kyc_status not null default 'PENDING',
+  didit_session_id text,
+  didit_session_url text,
+  kyc_verified_at timestamptz,
   created_at timestamptz default now()
 );
+create unique index users_didit_session_id_idx on users(didit_session_id) where didit_session_id is not null;
 
 create table api_keys (
   id uuid primary key default gen_random_uuid(),

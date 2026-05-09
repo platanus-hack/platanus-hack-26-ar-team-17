@@ -27,6 +27,11 @@ export async function POST(req: NextRequest) {
   const userId = getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
+  const { data: user } = await supabase.from('users').select('kyc_status').eq('id', userId).single();
+  if (!user || user.kyc_status !== 'VERIFIED') {
+    return NextResponse.json({ error: 'kyc_required' }, { status: 403 });
+  }
+
   const parsed = createBody.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 

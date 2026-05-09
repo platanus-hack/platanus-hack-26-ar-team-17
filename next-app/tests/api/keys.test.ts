@@ -26,6 +26,19 @@ function makeReq(path: string, method: string, body?: object) {
   });
 }
 
+function mockKyc(status: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED' | null) {
+  supabase.from.mockReturnValueOnce({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({
+          data: status === null ? null : { kyc_status: status },
+          error: null,
+        }),
+      }),
+    }),
+  });
+}
+
 describe('GET /api/keys', () => {
   it('returns list of keys', async () => {
     supabase.from.mockReturnValueOnce({
@@ -48,6 +61,7 @@ describe('GET /api/keys', () => {
 
 describe('POST /api/keys', () => {
   it('creates a key and returns plainKey', async () => {
+    mockKyc('VERIFIED');
     createApiKey.mockResolvedValue({ id: 'k1', plainKey: 'ak_abc', prefix: 'ak_abc' });
     const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['send_message'] }));
     expect(res.status).toBe(201);
@@ -55,8 +69,16 @@ describe('POST /api/keys', () => {
   });
 
   it('returns 400 for invalid scope', async () => {
+    mockKyc('VERIFIED');
     const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['mass_send'] }));
     expect(res.status).toBe(400);
+  });
+
+  it('returns 403 kyc_required when user has not completed KYC', async () => {
+    mockKyc('PENDING');
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['send_message'] }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('kyc_required');
   });
 });
 
@@ -71,21 +93,25 @@ describe('DELETE /api/keys/[id]', () => {
 
 describe('POST /api/keys — edge cases', () => {
   it('returns 400 when scope is an empty array (min(1) fails)', async () => {
+    mockKyc('VERIFIED');
     const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: [] }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when name is an empty string', async () => {
+    mockKyc('VERIFIED');
     const res = await POST(makeReq('/api/keys', 'POST', { name: '', scope: ['send_message'] }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when name exceeds 100 characters', async () => {
+    mockKyc('VERIFIED');
     const res = await POST(makeReq('/api/keys', 'POST', { name: 'a'.repeat(101), scope: ['send_message'] }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when scope is not an array', async () => {
+    mockKyc('VERIFIED');
     const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: 'send_message' }));
     expect(res.status).toBe(400);
   });

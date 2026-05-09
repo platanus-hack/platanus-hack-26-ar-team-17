@@ -25,5 +25,5 @@ export async function POST(req: NextRequest) {
   if (error || !user) return NextResponse.json({ error: 'registration_failed' }, { status: 500 });
 
   const token = await issueUserToken(user.id);
-  return NextResponse.json({ token, userId: user.id }, { status: 201 });
+  return NextResponse.json({ token, userId: user.id, kycStatus: user.kyc_status }, { status: 201 });
 }
