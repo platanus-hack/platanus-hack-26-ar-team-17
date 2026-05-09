@@ -22,15 +22,41 @@ function makeReq(path: string) {
 }
 
 function mockQuery(returnData: unknown) {
+  // A chainable query object that resolves at any point
+  const terminal = { data: returnData, error: null };
+  const chainable: Record<string, jest.Mock> = {};
+  const makeMock = (): jest.Mock =>
+    jest.fn().mockImplementation(() => {
+      // Return a new chainable object so callers can keep chaining
+      return new Proxy(terminal, {
+        get(_target, prop) {
+          if (prop === 'then') {
+            // Act as a resolved promise
+            return (resolve: (v: unknown) => void) => resolve(terminal);
+          }
+          return makeMock();
+        },
+      });
+    });
+
   return {
     select: jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
         order: jest.fn().mockReturnValue({
-          range: jest.fn().mockResolvedValue({ data: returnData, error: null }),
-          limit: jest.fn().mockResolvedValue({ data: returnData, error: null }),
+          range: jest.fn().mockReturnValue({
+            then: (resolve: (v: unknown) => void) => resolve(terminal),
+            eq: jest.fn().mockReturnValue({
+              then: (resolve: (v: unknown) => void) => resolve(terminal),
+              eq: jest.fn().mockReturnValue({
+                then: (resolve: (v: unknown) => void) => resolve(terminal),
+                eq: jest.fn().mockResolvedValue(terminal),
+              }),
+            }),
+          }),
+          limit: jest.fn().mockResolvedValue(terminal),
           eq: jest.fn().mockReturnValue({
             order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: returnData, error: null }),
+              limit: jest.fn().mockResolvedValue(terminal),
             }),
           }),
         }),
@@ -68,5 +94,39 @@ describe('GET /api/alerts', () => {
     });
     const res = await getAlerts(makeReq('/api/alerts'));
     expect(res.status).toBe(200);
+  });
+});
+
+describe('GET /api/audit-log — edge cases', () => {
+  it('returns empty array when user has no audit logs', async () => {
+    supabase.from.mockReturnValueOnce(mockQuery([]));
+    const res = await getAuditLog(makeReq('/api/audit-log'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it('accepts keyId filter in query string without error', async () => {
+    supabase.from.mockReturnValueOnce(mockQuery([{ id: 'l1', result: 'SUCCESS' }]));
+    const res = await getAuditLog(makeReq('/api/audit-log?keyId=k1'));
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('GET /api/alerts — edge cases', () => {
+  it('returns empty array when no BLOCKED_RULE logs exist', async () => {
+    supabase.from.mockReturnValueOnce({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          }),
+        }),
+      }),
+    });
+    const res = await getAlerts(makeReq('/api/alerts'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
   });
 });
