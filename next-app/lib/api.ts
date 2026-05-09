@@ -4,7 +4,9 @@ export interface ApiKey {
   id: string;
   user_id: string;
   name: string;
+  platform: string;
   prefix: string;
+  scope: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at?: string | null;
@@ -54,7 +56,7 @@ export const authApi = {
 
 export const keysApi = {
   list: (token: string) => req<ApiKey[]>('/api/keys', token),
-  create: (token: string, data: { name: string }) =>
+  create: (token: string, data: { name: string; platform?: string }) =>
     req<{ id: string; plainKey: string; prefix: string }>('/api/keys', token, {
       method: 'POST',
       body: JSON.stringify(data),

@@ -1,39 +1,55 @@
 import { validateKeyAndGetToken } from './pipeline/validateKey';
 import { verifyRules } from './pipeline/verifyRules';
+import { detectPlatform } from './platform/detect';
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 
 export class ZeroGateSDK {
-  private config: SDKConfig;
+  private apiKey: string;
+  private userHash: string;
+  private platformApiUrl: string;
+  private platform: string;
 
   constructor(config: SDKConfig) {
     if (!config.platformApiUrl.startsWith('https://')) {
       throw new Error('platformApiUrl must use HTTPS');
     }
-    this.config = config;
+    if (!config.apiKey) throw new Error('apiKey is required');
+    if (!config.userHash) throw new Error('userHash is required');
+
+    this.apiKey = config.apiKey;
+    this.userHash = config.userHash;
+    this.platformApiUrl = config.platformApiUrl;
+    this.platform = detectPlatform(config.platform);
   }
 
   async run(request: AgentRequest): Promise<PipelineResult> {
+    const executedAt = new Date().toISOString();
+
     const apiResponse = await validateKeyAndGetToken({
-      apiKey: request.apiKey,
-      action: request.action,
-      platform: request.platform,
-      text: request.text ?? '',
-      platformApiUrl: this.config.platformApiUrl,
+      apiKey:         this.apiKey,
+      userHash:       this.userHash,
+      action:         request.action,
+      platform:       request.platform ?? this.platform,
+      text:           request.text ?? '',
+      executedAt,
+      platformApiUrl: this.platformApiUrl,
     });
 
     if (!apiResponse.valid) {
-      return { allowed: false, error: apiResponse.error ?? 'invalid_api_key' };
+      return { allowed: false, executedAt, error: apiResponse.error ?? 'invalid_credentials' };
     }
 
     const rulesResult = verifyRules({ apiResponse });
     if (rulesResult.blocked) {
-      return { allowed: false, error: rulesResult.error ?? 'action_not_permitted' };
+      return { allowed: false, executedAt, error: rulesResult.error ?? 'action_not_permitted' };
     }
 
     return {
-      allowed: true,
-      token: apiResponse.token,
-      userId: apiResponse.userId,
+      allowed:   true,
+      executedAt,
+      token:     apiResponse.token,
+      userId:    apiResponse.userId,
+      agentId:   apiResponse.agentId,
     };
   }
 }

@@ -1,13 +1,20 @@
 import { supabase } from '../db/supabase';
 import { createApiKey } from './apiKey.service';
 
+export type AgentType = 'agent' | 'mcp';
+
 export interface Agent {
   id: string;
   user_id: string;
   name: string;
+  type: AgentType;
   platform: string;
   status: 'ACTIVE' | 'DISABLED';
   created_at: string;
+}
+
+export function getMcpUrl(userHash: string, agentId: string, baseUrl: string): string {
+  return `${baseUrl}/api/mcp/${userHash}/${agentId}`;
 }
 
 export async function listAgents(userId: string): Promise<Agent[]> {
@@ -32,19 +39,19 @@ export async function getAgent(agentId: string, userId: string): Promise<Agent |
 export async function createAgent(params: {
   userId: string;
   name: string;
+  type: AgentType;
   platform: string;
-}): Promise<{ agent: Agent; key: { id: string; plainKey: string; prefix: string } }> {
+}): Promise<{ agent: Agent; key: { id: string; plainKey: string; prefix: string } | null }> {
   const { data: agent, error } = await supabase
     .from('agents')
-    .insert({
-      user_id: params.userId,
-      name: params.name,
-      platform: params.platform,
-    })
+    .insert({ user_id: params.userId, name: params.name, type: params.type, platform: params.platform })
     .select()
     .single<Agent>();
 
   if (error || !agent) throw error ?? new Error('Failed to create agent');
+
+  // MCP agents don't need an API key — they auth via user hash in URL
+  if (params.type === 'mcp') return { agent, key: null };
 
   const key = await createApiKey({ agentId: agent.id, name: 'default' });
   return { agent, key };
@@ -54,11 +61,10 @@ export async function disableAgent(agentId: string, userId: string): Promise<voi
   const owned = await getAgent(agentId, userId);
   if (!owned) return;
 
-  const now = new Date().toISOString();
   await supabase.from('agents').update({ status: 'DISABLED' }).eq('id', agentId);
   await supabase
     .from('api_keys')
-    .update({ status: 'REVOKED', revoked_at: now })
+    .update({ status: 'REVOKED', revoked_at: new Date().toISOString() })
     .eq('agent_id', agentId)
     .eq('status', 'ACTIVE');
 }

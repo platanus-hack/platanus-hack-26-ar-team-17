@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { supabase } from '@/lib/db/supabase';
 import { issueUserToken } from '@/lib/services/token.service';
 
@@ -21,9 +22,11 @@ export async function POST(req: NextRequest) {
   if (existing) return NextResponse.json({ error: 'email_taken' }, { status: 409 });
 
   const hashed = await bcrypt.hash(password, 12);
+  const hash = crypto.randomBytes(16).toString('hex');
+
   const { data: user, error } = await supabase
     .from('users')
-    .insert({ email, password: hashed, full_name: full_name ?? null, company: company ?? null, kyc_status: 'PENDING' })
+    .insert({ email, password: hashed, full_name: full_name ?? null, company: company ?? null, hash, kyc_status: 'PENDING' })
     .select()
     .single();
 

@@ -1,46 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validateApiKeyHash } from '@/lib/services/apiKey.service';
+import { validateApiKeyAndHash } from '@/lib/services/apiKey.service';
 import { issueToken, verifyToken, isTokenRevoked } from '@/lib/services/token.service';
 import { checkGlobalRules } from '@/lib/services/rules.service';
 import { writeLog } from '@/lib/services/auditLog.service';
 import { checkRateLimit } from '@/lib/rateLimiter';
 
 const bodySchema = z.object({
-  api_key_hash: z.string().min(1),
-  action: z.string().min(1),
-  platform: z.string().min(1),
-  text: z.string().default(''),
+  api_key:     z.string().min(1),
+  user_hash:   z.string().min(1),
+  action:      z.string().min(1),
+  platform:    z.string().min(1),
+  text:        z.string().default(''),
+  executed_at: z.string().datetime().optional(),
 });
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  const allowed = await checkRateLimit(ip);
-  if (!allowed) return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 });
+  if (!await checkRateLimit(ip)) return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 });
 
   let rawBody: unknown;
-  try {
-    rawBody = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
-  }
+  try { rawBody = await req.json(); }
+  catch { return NextResponse.json({ error: 'invalid_request' }, { status: 400 }); }
+
   const parsed = bodySchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const { api_key_hash, action, platform, text } = parsed.data;
+  const { api_key, user_hash, action, platform, text, executed_at } = parsed.data;
 
-  const keyRecord = await validateApiKeyHash(api_key_hash);
+  const keyRecord = await validateApiKeyAndHash(api_key, user_hash);
   if (!keyRecord) {
-    await writeLog({ apiKeyId: null, userId: null, action, platform, userInput: text, result: 'BLOCKED_INVALID_KEY' });
-    return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
+    await writeLog({ agentId: null, apiKeyId: null, userId: null, action, platform, userInput: text, result: 'BLOCKED_INVALID_KEY' });
+    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
   }
 
-  const logBase = { apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, userInput: text };
+  const logBase = {
+    agentId:    keyRecord.agent_id,
+    apiKeyId:   keyRecord.id,
+    userId:     keyRecord.user_id,
+    action,
+    platform,
+    userInput:  text,
+    executedAt: executed_at,
+  };
 
   const token = await issueToken({ userId: keyRecord.user_id, apiKeyId: keyRecord.id });
   const decoded = await verifyToken(token);
   if (await isTokenRevoked(decoded.jti)) {
-    return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
+    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
   }
 
   const ruleCheck = await checkGlobalRules({ action, text });
@@ -50,5 +57,5 @@ export async function POST(req: NextRequest) {
   }
 
   await writeLog({ ...logBase, result: 'SUCCESS' });
-  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id });
+  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id, agentId: keyRecord.agent_id });
 }

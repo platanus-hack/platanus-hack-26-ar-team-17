@@ -1,39 +1,49 @@
 import { supabase } from '../db/supabase';
 import { generateApiKey, hashApiKey, getKeyPrefix } from '../utils/crypto';
 
-const ALL_SCOPES = ['send_message', 'read_messages', 'create_post', 'delete_post', 'read_profile', 'update_profile'];
-
 export interface ApiKeyRecord {
   id: string;
+  agent_id: string;
   user_id: string;
   status: string;
 }
 
-export async function validateApiKeyHash(keyHash: string): Promise<ApiKeyRecord | null> {
+export async function validateApiKeyAndHash(
+  keyHash: string,
+  userHash: string,
+): Promise<ApiKeyRecord | null> {
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, user_id, status')
+    .select('id, agent_id, status, agents!inner(user_id, status, users!inner(hash))')
     .eq('key_hash', keyHash)
-    .single<{ id: string; user_id: string; status: string }>();
+    .single<{
+      id: string;
+      agent_id: string;
+      status: string;
+      agents: { user_id: string; status: string; users: { hash: string } };
+    }>();
 
-  if (error || !data) return null;
+  if (error || !data || !data.agents) return null;
   if (data.status !== 'ACTIVE') return null;
-  return { id: data.id, user_id: data.user_id, status: data.status };
+  if (data.agents.status !== 'ACTIVE') return null;
+  if (data.agents.users.hash !== userHash) return null;
+
+  return { id: data.id, agent_id: data.agent_id, user_id: data.agents.user_id, status: data.status };
 }
 
 export async function createApiKey(params: {
-  userId: string;
+  agentId: string;
   name: string;
   scope?: string[];
 }): Promise<{ id: string; plainKey: string; prefix: string }> {
   const plainKey = generateApiKey();
   const keyHash = hashApiKey(plainKey);
   const prefix = getKeyPrefix(plainKey);
-  const scope = params.scope ?? ALL_SCOPES;
+  const scope = params.scope ?? [];
 
   const { data, error } = await supabase
     .from('api_keys')
-    .insert({ user_id: params.userId, name: params.name, key_hash: keyHash, prefix, scope })
+    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, prefix, scope })
     .select()
     .single();
 
@@ -44,16 +54,14 @@ export async function createApiKey(params: {
 export async function revokeApiKey(keyId: string, userId: string): Promise<void> {
   const { data: key } = await supabase
     .from('api_keys')
-    .select('id, user_id')
+    .select('id, agents!inner(user_id)')
     .eq('id', keyId)
-    .single<{ id: string; user_id: string }>();
+    .single<{ id: string; agents: { user_id: string } }>();
 
-  if (!key || key.user_id !== userId) return;
+  if (!key || key.agents.user_id !== userId) return;
 
-  const { error } = await supabase
+  await supabase
     .from('api_keys')
     .update({ status: 'REVOKED', revoked_at: new Date().toISOString() })
     .eq('id', keyId);
-
-  if (error) throw error;
 }

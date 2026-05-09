@@ -2,13 +2,15 @@ import crypto from 'crypto';
 import { supabase } from '../db/supabase';
 
 interface LogParams {
-  apiKeyId: string | null;
-  userId: string | null;
-  action: string;
-  platform: string;
-  result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
+  agentId:    string | null;
+  apiKeyId:   string | null;
+  userId:     string | null;
+  action:     string;
+  platform:   string;
+  result:     'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   ruleViolated?: string;
-  userInput?: string;
+  userInput?:  string;
+  executedAt?: string; // ISO timestamp from SDK (when agent ran the action)
 }
 
 export async function writeLog(params: LogParams) {
@@ -20,20 +22,22 @@ export async function writeLog(params: LogParams) {
     .single();
 
   const prevChecksum = prev?.checksum ?? 'genesis';
-  const timestamp = new Date().toISOString();
-  const data = `${prevChecksum}|${timestamp}|${params.userId ?? 'unknown'}|${params.action}|${params.result}`;
+  const serverTime = new Date().toISOString();
+  const data = `${prevChecksum}|${serverTime}|${params.userId ?? 'unknown'}|${params.action}|${params.result}`;
   const checksum = crypto.createHash('sha256').update(data).digest('hex');
 
   const { data: entry, error } = await supabase
     .from('audit_logs')
     .insert({
-      api_key_id: params.apiKeyId,
-      user_id: params.userId,
-      action: params.action,
-      user_input: params.userInput ?? null,
-      platform: params.platform,
-      result: params.result,
+      agent_id:    params.agentId,
+      api_key_id:  params.apiKeyId,
+      user_id:     params.userId,
+      action:      params.action,
+      platform:    params.platform,
+      user_input:  params.userInput ?? null,
+      result:      params.result,
       rule_violated: params.ruleViolated ?? null,
+      executed_at: params.executedAt ?? serverTime,
       prev_checksum: prevChecksum,
       checksum,
     })

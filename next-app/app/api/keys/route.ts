@@ -4,8 +4,11 @@ import { getAuthUserId } from '@/lib/auth';
 import { createApiKey } from '@/lib/services/apiKey.service';
 import { supabase } from '@/lib/db/supabase';
 
+const PLATFORMS = ['mcp', 'whatsapp', 'telegram', 'slack', 'api', 'custom'] as const;
+
 const createBody = z.object({
   name: z.string().min(1).max(100),
+  platform: z.enum(PLATFORMS).default('custom'),
   scope: z.array(z.string()).optional(),
 });
 
@@ -15,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const { data: keys } = await supabase
     .from('api_keys')
-    .select('id, name, prefix, scope, status, created_at, revoked_at')
+    .select('id, name, platform, prefix, scope, status, created_at, revoked_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 
@@ -40,6 +43,6 @@ export async function POST(req: NextRequest) {
   const parsed = createBody.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const result = await createApiKey({ userId, name: parsed.data.name, scope: parsed.data.scope });
+  const result = await createApiKey({ userId, name: parsed.data.name, platform: parsed.data.platform, scope: parsed.data.scope });
   return NextResponse.json(result, { status: 201 });
 }

@@ -6,9 +6,11 @@ import { ValidationResponse } from '../types';
 
 interface ValidateParams {
   apiKey: string;
+  userHash: string;
   action: string;
   platform: string;
   text: string;
+  executedAt: string;
   platformApiUrl: string;
 }
 
@@ -17,15 +19,15 @@ function hashKey(key: string): string {
 }
 
 export async function validateKeyAndGetToken(params: ValidateParams): Promise<ValidationResponse> {
-  const response = await post<ValidationResponse>(
+  return post<ValidationResponse>(
     `${params.platformApiUrl}/api/validate`,
     {
-      api_key_hash: hashKey(params.apiKey),
-      action: normalizeAction(params.action),
-      platform: params.platform,
-      text: normalizeText(params.text ?? ''),
+      api_key:     hashKey(params.apiKey),
+      user_hash:   params.userHash,
+      action:      normalizeAction(params.action),
+      platform:    params.platform,
+      text:        normalizeText(params.text),
+      executed_at: params.executedAt,
     }
   );
-
-  return response;
 }
