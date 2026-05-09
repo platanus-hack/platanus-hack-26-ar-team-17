@@ -2,21 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { hashApiKey } from '@/lib/utils/crypto';
+import { writeLog } from '@/lib/services/auditLog.service';
 
 const bodySchema = z.object({
-  token:     z.string().min(1),  // the api key (plain) — we hash here
-  hash:      z.string().min(1),  // user hash
-  action:    z.string().min(1),
-  platform:  z.string().min(1),
+  token:    z.string().min(1),
+  hash:     z.string().min(1),
+  action:   z.string().min(1),
+  platform: z.string().min(1),
 });
 
 export async function POST(req: NextRequest) {
   let body: unknown;
   try { body = await req.json(); }
-  catch { return NextResponse.json({ allowed: false }, { status: 200 }); }
+  catch { return NextResponse.json({ allowed: false }); }
 
   const parsed = bodySchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ allowed: false }, { status: 200 });
+  if (!parsed.success) return NextResponse.json({ allowed: false });
 
   const { token, hash, action, platform } = parsed.data;
   const keyHash = hashApiKey(token);
@@ -25,7 +26,12 @@ export async function POST(req: NextRequest) {
     .from('api_keys')
     .select('id, agent_id, status, agents!inner(user_id, status, users!inner(hash))')
     .eq('key_hash', keyHash)
-    .single<{ id: string; agent_id: string; status: string; agents: { user_id: string; status: string; users: { hash: string } } }>();
+    .single<{
+      id: string;
+      agent_id: string;
+      status: string;
+      agents: { user_id: string; status: string; users: { hash: string } };
+    }>();
 
   const allowed =
     !!data &&
@@ -33,17 +39,23 @@ export async function POST(req: NextRequest) {
     data.agents?.status === 'ACTIVE' &&
     data.agents?.users?.hash === hash;
 
-  // fire-and-forget audit log (doesn't block response)
   if (allowed && data) {
-    void supabase.from('audit_logs').insert({
-      agent_id:   data.agent_id,
-      api_key_id: data.id,
-      user_id:    data.agents.user_id,
+    void writeLog({
+      agentId: data.agent_id,
+      apiKeyId: data.id,
+      userId: data.agents.user_id,
       action,
       platform,
-      result:     'SUCCESS',
-      checksum:   '',
-      prev_checksum: '',
+      result: 'SUCCESS',
+    });
+  } else {
+    void writeLog({
+      agentId: data?.agent_id ?? null,
+      apiKeyId: data?.id ?? null,
+      userId: data?.agents?.user_id ?? null,
+      action,
+      platform,
+      result: 'BLOCKED_INVALID_KEY',
     });
   }
 

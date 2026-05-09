@@ -1,16 +1,24 @@
 import { post } from '../../src/http/client';
 import https from 'https';
 
-jest.mock('https');
-
 describe('http client', () => {
+  let requestSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    requestSpy = jest.spyOn(https, 'request');
+  });
+
+  afterEach(() => {
+    requestSpy.mockRestore();
+  });
+
   it('always uses https, never http', () => {
     const mockReq = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
-    (https.request as jest.Mock).mockReturnValue(mockReq);
+    requestSpy.mockReturnValue(mockReq as any);
 
     post('https://api.example.com/v1/validate', { token: 'ak_valid', hash: 'hash_valid' });
 
-    expect(https.request).toHaveBeenCalledWith(
+    expect(requestSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         protocol: 'https:',
         rejectUnauthorized: true,
@@ -27,11 +35,11 @@ describe('http client', () => {
 
   it('uses hostname, port, and full path from URL', () => {
     const mockReq = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
-    (https.request as jest.Mock).mockReturnValue(mockReq);
+    requestSpy.mockReturnValue(mockReq as any);
 
     post('https://api.example.com:8443/api/validate?v=2', {});
 
-    expect(https.request).toHaveBeenCalledWith(
+    expect(requestSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         hostname: 'api.example.com',
         port: '8443',
@@ -43,7 +51,7 @@ describe('http client', () => {
 
   it('rejects with "Invalid JSON" when server returns non-JSON body', async () => {
     const mockReq = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
-    (https.request as jest.Mock).mockImplementation((_opts: unknown, cb: (res: unknown) => void) => {
+    requestSpy.mockImplementation((_opts: unknown, cb: (res: unknown) => void) => {
       setImmediate(() => {
         cb({
           on: (event: string, handler: (...args: unknown[]) => void) => {
@@ -52,7 +60,7 @@ describe('http client', () => {
           },
         });
       });
-      return mockReq;
+      return mockReq as any;
     });
 
     await expect(
@@ -68,7 +76,7 @@ describe('http client', () => {
       write: jest.fn(),
       end: jest.fn(),
     };
-    (https.request as jest.Mock).mockReturnValue(mockReq);
+    requestSpy.mockReturnValue(mockReq as any);
 
     await expect(
       post('https://api.example.com/api/validate', {})

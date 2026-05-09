@@ -1,86 +1,116 @@
 import { validate } from '../../src/pipeline/validateKey';
 import * as client from '../../src/http/client';
 
-jest.mock('../../src/http/client');
-
 describe('validate', () => {
-  beforeEach(() => jest.clearAllMocks());
+  let postSpy: jest.SpyInstance;
 
-  it('returns the platform API allowed result', async () => {
-    (client.post as jest.Mock).mockResolvedValue({ allowed: true });
+  beforeEach(() => {
+    postSpy = jest.spyOn(client, 'post');
+  });
+
+  afterEach(() => {
+    postSpy.mockRestore();
+  });
+
+  it('returns allowed: true for a valid key and hash', async () => {
+    postSpy.mockResolvedValue({ allowed: true });
 
     const result = await validate({
       token: 'ak_validkey',
-      hash: 'user_hash_1',
+      hash: 'userhash123',
       action: 'send_message',
-      platform: 'whatsapp',
+      platform: 'mcp',
       platformApiUrl: 'https://api.example.com',
     });
 
     expect(result.allowed).toBe(true);
   });
 
-  it('sends the payload expected by /api/validate', async () => {
-    (client.post as jest.Mock).mockResolvedValue({ allowed: true });
+  it('returns allowed: false for an invalid key', async () => {
+    postSpy.mockResolvedValue({ allowed: false });
 
-    await validate({
-      token: 'ak_plainkey123',
-      hash: 'user_hash_1',
+    const result = await validate({
+      token: 'ak_badkey',
+      hash: 'userhash123',
       action: 'send_message',
-      platform: 'whatsapp',
+      platform: 'mcp',
       platformApiUrl: 'https://api.example.com',
     });
 
-    expect(client.post).toHaveBeenCalledWith(
-      'https://api.example.com/api/validate',
-      {
-        token: 'ak_plainkey123',
-        hash: 'user_hash_1',
-        action: 'send_message',
-        platform: 'whatsapp',
-      }
-    );
+    expect(result.allowed).toBe(false);
+  });
+
+  it('sends plain token and hash in request body', async () => {
+    postSpy.mockResolvedValue({ allowed: true });
+
+    await validate({
+      token: 'ak_plainkey',
+      hash: 'myhash',
+      action: 'send_message',
+      platform: 'mcp',
+      platformApiUrl: 'https://api.example.com',
+    });
+
+    const sentBody = postSpy.mock.calls[0][1];
+    expect(sentBody.token).toBe('ak_plainkey');
+    expect(sentBody.hash).toBe('myhash');
+    expect(sentBody.action).toBe('send_message');
+    expect(sentBody.platform).toBe('mcp');
+  });
+
+  it('calls the correct platform API URL', async () => {
+    postSpy.mockResolvedValue({ allowed: true });
+
+    await validate({
+      token: 'ak_x',
+      hash: 'h',
+      action: 'send_message',
+      platform: 'mcp',
+      platformApiUrl: 'https://custom.example.com',
+    });
+
+    expect(postSpy.mock.calls[0][0]).toBe('https://custom.example.com/api/validate');
   });
 
   it('propagates network errors from http client', async () => {
-    (client.post as jest.Mock).mockRejectedValue(new Error('ECONNREFUSED'));
+    postSpy.mockRejectedValue(new Error('ECONNREFUSED'));
 
     await expect(
       validate({
         token: 'ak_x',
-        hash: 'user_hash_1',
+        hash: 'h',
         action: 'send_message',
-        platform: 'whatsapp',
+        platform: 'mcp',
         platformApiUrl: 'https://api.example.com',
       })
     ).rejects.toThrow('ECONNREFUSED');
   });
 
   it('keeps action normalization to the caller', async () => {
-    (client.post as jest.Mock).mockResolvedValue({ allowed: true });
+    postSpy.mockResolvedValue({ allowed: true });
 
     await validate({
       token: 'ak_x',
       hash: 'user_hash_1',
       action: 'SEND_MESSAGE',
-      platform: 'whatsapp',
+      platform: 'mcp',
       platformApiUrl: 'https://api.example.com',
     });
 
-    expect((client.post as jest.Mock).mock.calls[0][1].action).toBe('SEND_MESSAGE');
+    expect(postSpy.mock.calls[0][1].action).toBe('SEND_MESSAGE');
   });
 
   it('supports a platform API URL with a path prefix', async () => {
-    (client.post as jest.Mock).mockResolvedValue({ allowed: false });
+    postSpy.mockResolvedValue({ allowed: false });
 
     await validate({
       token: 'ak_x',
       hash: 'user_hash_1',
       action: 'send_message',
-      platform: 'whatsapp',
+      platform: 'mcp',
       platformApiUrl: 'https://api.example.com/v1',
     });
 
-    expect((client.post as jest.Mock).mock.calls[0][0]).toBe('https://api.example.com/v1/api/validate');
+    expect(postSpy.mock.calls[0][0]).toBe('https://api.example.com/v1/api/validate');
   });
 });

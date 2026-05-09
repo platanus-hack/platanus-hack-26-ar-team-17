@@ -65,10 +65,10 @@ async function run() {
     action: string;
     expected: boolean;
   }> = [
-    { label: 'valid credentials', token: API_KEY, hash: USER_HASH, action: 'send_message', expected: true },
-    { label: 'valid credentials with arbitrary action', token: API_KEY, hash: USER_HASH, action: 'mass_send', expected: true },
-    { label: 'invalid api key', token: 'ak_INVALID_KEY_FOR_TEST', hash: USER_HASH, action: 'send_message', expected: false },
-    { label: 'invalid user hash', token: API_KEY, hash: 'invalid_hash_for_test', action: 'send_message', expected: false },
+    { label: 'valid credentials',                       token: API_KEY,                   hash: USER_HASH,               action: 'send_message', expected: true  },
+    { label: 'valid credentials with arbitrary action', token: API_KEY,                   hash: USER_HASH,               action: 'mass_send',    expected: true  },
+    { label: 'invalid api key',                         token: 'ak_INVALID_KEY_FOR_TEST', hash: USER_HASH,               action: 'send_message', expected: false },
+    { label: 'invalid user hash',                       token: API_KEY,                   hash: 'invalid_hash_for_test', action: 'send_message', expected: false },
   ];
 
   let passed = 0;

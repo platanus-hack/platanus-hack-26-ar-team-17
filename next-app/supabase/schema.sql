@@ -20,16 +20,18 @@ create table users (
   google_sub text unique,
   picture_url text,
   dni text,
+  hash text unique,              -- SDK user-hash: SHA-256(auth_user_id hex), set on KYC approval
   created_at timestamptz default now()
 );
 create unique index users_didit_session_id_idx on users(didit_session_id) where didit_session_id is not null;
+create index on users(hash);
 
 create table agents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id) on delete cascade not null,
   name text not null,
   platform text not null,
-  scope text[] not null default '{}',
+  type text not null default 'agent',
   status agent_status not null default 'ACTIVE',
   created_at timestamptz default now()
 );

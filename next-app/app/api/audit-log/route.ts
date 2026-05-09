@@ -9,7 +9,7 @@ const querySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   result: z
-    .enum(['SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED'])
+    .enum(['SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_RULE', 'BLOCKED_REVOKED'])
     .optional(),
   page: z.coerce.number().min(1).default(1),
 });

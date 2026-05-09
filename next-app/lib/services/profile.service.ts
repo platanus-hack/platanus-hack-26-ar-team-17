@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { supabase } from '../db/supabase';
 
 // The live `users` table uses different column names than this service exposes.
@@ -103,6 +104,7 @@ export async function updateProfileFromKycResult(
   };
   if (fields.verification_status === 'APPROVED') {
     update.kyc_verified_at = new Date().toISOString();
+    update.hash = crypto.createHash('sha256').update(authUserId).digest('hex');
   }
   const { error } = await supabase
     .from('users')

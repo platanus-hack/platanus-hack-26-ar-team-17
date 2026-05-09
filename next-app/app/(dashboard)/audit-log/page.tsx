@@ -9,7 +9,6 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 const RESULT_COLORS: Record<string, string> = {
   SUCCESS: '#c8f542',
   BLOCKED_INVALID_KEY: '#ff5c5c',
-  BLOCKED_SCOPE: '#ffb84d',
   BLOCKED_RULE: '#ff5c5c',
   BLOCKED_REVOKED: '#8a8a8a',
 };
@@ -73,7 +72,6 @@ export default function AuditLogPage() {
           <option value="" style={{ background: '#0a0a0a' }}>All results</option>
           <option value="SUCCESS" style={{ background: '#0a0a0a' }}>Success</option>
           <option value="BLOCKED_INVALID_KEY" style={{ background: '#0a0a0a' }}>Invalid key</option>
-          <option value="BLOCKED_SCOPE" style={{ background: '#0a0a0a' }}>Scope blocked</option>
           <option value="BLOCKED_RULE" style={{ background: '#0a0a0a' }}>Rule blocked</option>
           <option value="BLOCKED_REVOKED" style={{ background: '#0a0a0a' }}>Revoked</option>
         </select>

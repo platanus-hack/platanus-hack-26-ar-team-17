@@ -1,4 +1,4 @@
-import { validateApiKeyHash, createApiKey, revokeApiKey } from '@/lib/services/apiKey.service';
+import { validateApiKeyAndHash, createApiKey, revokeApiKey } from '@/lib/services/apiKey.service';
 
 jest.mock('@/lib/db/supabase', () => ({
   supabase: {
@@ -7,6 +7,8 @@ jest.mock('@/lib/db/supabase', () => ({
 }));
 
 const { supabase } = require('@/lib/db/supabase');
+
+beforeEach(() => jest.clearAllMocks());
 
 function selectSingle(singleResult: unknown) {
   return {
@@ -18,24 +20,23 @@ function selectSingle(singleResult: unknown) {
   };
 }
 
-describe('validateApiKeyHash', () => {
-  it('returns the joined record for a valid active key hash', async () => {
+describe('validateApiKeyAndHash', () => {
+  it('returns the joined record for a valid active key with correct hash', async () => {
     supabase.from.mockReturnValueOnce(
       selectSingle({
         data: {
           id: 'key_1',
           agent_id: 'agent_1',
           status: 'ACTIVE',
-          agents: { user_id: 'user_1', scope: ['send_message'], status: 'ACTIVE' },
+          agents: { user_id: 'user_1', status: 'ACTIVE', users: { hash: 'correct-hash' } },
         },
         error: null,
       })
     );
-    expect(await validateApiKeyHash('abc')).toMatchObject({
+    expect(await validateApiKeyAndHash('abc', 'correct-hash')).toMatchObject({
       id: 'key_1',
       agent_id: 'agent_1',
       user_id: 'user_1',
-      scope: ['send_message'],
     });
   });
 
@@ -43,27 +44,37 @@ describe('validateApiKeyHash', () => {
     supabase.from.mockReturnValueOnce(
       selectSingle({ data: null, error: { message: 'not found' } })
     );
-    expect(await validateApiKeyHash('unknown')).toBeNull();
+    expect(await validateApiKeyAndHash('unknown', 'hash')).toBeNull();
   });
 
   it('returns null for revoked key', async () => {
     supabase.from.mockReturnValueOnce(
       selectSingle({
-        data: { id: 'key_2', agent_id: 'agent_2', status: 'REVOKED', agents: { user_id: 'u', scope: [], status: 'ACTIVE' } },
+        data: { id: 'key_2', agent_id: 'agent_2', status: 'REVOKED', agents: { user_id: 'u', status: 'ACTIVE', users: { hash: 'h' } } },
         error: null,
       })
     );
-    expect(await validateApiKeyHash('revoked')).toBeNull();
+    expect(await validateApiKeyAndHash('revoked', 'h')).toBeNull();
   });
 
   it('returns null when the parent agent is disabled', async () => {
     supabase.from.mockReturnValueOnce(
       selectSingle({
-        data: { id: 'key_3', agent_id: 'agent_3', status: 'ACTIVE', agents: { user_id: 'u', scope: [], status: 'DISABLED' } },
+        data: { id: 'key_3', agent_id: 'agent_3', status: 'ACTIVE', agents: { user_id: 'u', status: 'DISABLED', users: { hash: 'h' } } },
         error: null,
       })
     );
-    expect(await validateApiKeyHash('disabled-agent')).toBeNull();
+    expect(await validateApiKeyAndHash('disabled-agent', 'h')).toBeNull();
+  });
+
+  it('returns null when user hash does not match', async () => {
+    supabase.from.mockReturnValueOnce(
+      selectSingle({
+        data: { id: 'key_4', agent_id: 'agent_4', status: 'ACTIVE', agents: { user_id: 'u', status: 'ACTIVE', users: { hash: 'correct' } } },
+        error: null,
+      })
+    );
+    expect(await validateApiKeyAndHash('key', 'wrong-hash')).toBeNull();
   });
 });
 
@@ -83,8 +94,6 @@ describe('createApiKey', () => {
 });
 
 describe('revokeApiKey', () => {
-  beforeEach(() => jest.clearAllMocks());
-
   it('revokes when the key belongs to the user', async () => {
     supabase.from
       .mockReturnValueOnce(selectSingle({
