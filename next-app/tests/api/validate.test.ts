@@ -13,6 +13,7 @@ const { issueToken, verifyToken, isTokenRevoked } = require('@/lib/services/toke
 const { verifyScope } = require('@/lib/services/scope.service');
 const { checkGlobalRules } = require('@/lib/services/rules.service');
 const { writeLog } = require('@/lib/services/auditLog.service');
+const { checkRateLimit } = require('@/lib/rateLimiter');
 
 const validKey = { id: 'key_1', user_id: 'user_1', scope: ['send_message'], status: 'ACTIVE' };
 
@@ -74,5 +75,65 @@ describe('POST /api/validate', () => {
 
     const res = await POST(makeRequest({ api_key_hash: 'abc', action: 'send_message', platform: 'whatsapp', text: 'spam' }));
     expect(res.status).toBe(403);
+  });
+
+  it('returns 400 when body is not valid JSON', async () => {
+    const req = new NextRequest('http://localhost/api/validate', {
+      method: 'POST',
+      body: 'not-json',
+      headers: { 'Content-Type': 'text/plain', 'x-forwarded-for': '1.2.3.4' },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when api_key_hash is missing', async () => {
+    const res = await POST(makeRequest({ action: 'send_message', platform: 'whatsapp' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when action is missing', async () => {
+    const res = await POST(makeRequest({ api_key_hash: 'abc', platform: 'whatsapp' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when api_key_hash is empty string (fails min(1))', async () => {
+    const res = await POST(makeRequest({ api_key_hash: '', action: 'send_message', platform: 'whatsapp' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 429 when rate limiter returns false', async () => {
+    (checkRateLimit as jest.Mock).mockResolvedValueOnce(false);
+
+    const res = await POST(makeRequest({ api_key_hash: 'abc', action: 'send_message', platform: 'whatsapp' }));
+    expect(res.status).toBe(429);
+    expect((await res.json()).error).toBe('rate_limit_exceeded');
+  });
+
+  it('writes BLOCKED_INVALID_KEY to audit log when key not found', async () => {
+    validateApiKeyHash.mockResolvedValue(null);
+    writeLog.mockResolvedValue({});
+
+    await POST(makeRequest({ api_key_hash: 'bad', action: 'send_message', platform: 'whatsapp', text: '' }));
+
+    expect(writeLog).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'BLOCKED_INVALID_KEY', apiKeyId: 'unknown' })
+    );
+  });
+
+  it('writes BLOCKED_RULE to audit log and includes ruleViolated', async () => {
+    validateApiKeyHash.mockResolvedValue(validKey);
+    issueToken.mockResolvedValue('tok');
+    verifyToken.mockResolvedValue({ jti: 'jti-rule' });
+    isTokenRevoked.mockResolvedValue(false);
+    verifyScope.mockReturnValue(true);
+    checkGlobalRules.mockResolvedValue({ blocked: true, ruleViolated: 'mass_send' });
+    writeLog.mockResolvedValue({});
+
+    await POST(makeRequest({ api_key_hash: 'abc', action: 'send_message', platform: 'whatsapp', text: 'spam' }));
+
+    expect(writeLog).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'BLOCKED_RULE', ruleViolated: 'mass_send' })
+    );
   });
 });

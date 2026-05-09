@@ -19,7 +19,13 @@ export async function POST(req: NextRequest) {
   const allowed = await checkRateLimit(ip);
   if (!allowed) return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 });
 
-  const parsed = bodySchema.safeParse(await req.json());
+  let rawBody: unknown;
+  try {
+    rawBody = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
   const { api_key_hash, action, platform, text } = parsed.data;
