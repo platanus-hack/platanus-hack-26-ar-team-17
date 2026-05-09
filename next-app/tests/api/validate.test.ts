@@ -15,7 +15,7 @@ const { checkGlobalRules } = require('@/lib/services/rules.service');
 const { writeLog } = require('@/lib/services/auditLog.service');
 const { checkRateLimit } = require('@/lib/rateLimiter');
 
-const validKey = { id: 'key_1', user_id: 'user_1', scope: ['send_message'], status: 'ACTIVE' };
+const validKey = { id: 'key_1', agent_id: 'agent_1', user_id: 'user_1', scope: ['send_message'], status: 'ACTIVE' };
 
 function makeRequest(body: object) {
   return new NextRequest('http://localhost/api/validate', {
@@ -117,7 +117,7 @@ describe('POST /api/validate', () => {
     await POST(makeRequest({ api_key_hash: 'bad', action: 'send_message', platform: 'whatsapp', text: '' }));
 
     expect(writeLog).toHaveBeenCalledWith(
-      expect.objectContaining({ result: 'BLOCKED_INVALID_KEY', apiKeyId: 'unknown' })
+      expect.objectContaining({ result: 'BLOCKED_INVALID_KEY', agentId: null, apiKeyId: null, userId: null })
     );
   });
 

@@ -32,9 +32,11 @@ export async function POST(req: NextRequest) {
 
   const keyRecord = await validateApiKeyHash(api_key_hash);
   if (!keyRecord) {
-    await writeLog({ apiKeyId: 'unknown', userId: 'unknown', action, platform, result: 'BLOCKED_INVALID_KEY' });
+    await writeLog({ agentId: null, apiKeyId: null, userId: null, action, platform, userInput: text, result: 'BLOCKED_INVALID_KEY' });
     return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
   }
+
+  const logBase = { agentId: keyRecord.agent_id, apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, userInput: text };
 
   const token = await issueToken({ userId: keyRecord.user_id, apiKeyId: keyRecord.id, scope: keyRecord.scope });
   const decoded = await verifyToken(token);
@@ -43,16 +45,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verifyScope(action, keyRecord.scope)) {
-    await writeLog({ apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, result: 'BLOCKED_SCOPE' });
+    await writeLog({ ...logBase, result: 'BLOCKED_SCOPE' });
     return NextResponse.json({ error: 'action_not_permitted' }, { status: 403 });
   }
 
   const ruleCheck = await checkGlobalRules({ action, text });
   if (ruleCheck.blocked) {
-    await writeLog({ apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, result: 'BLOCKED_RULE', ruleViolated: ruleCheck.ruleViolated });
+    await writeLog({ ...logBase, result: 'BLOCKED_RULE', ruleViolated: ruleCheck.ruleViolated });
     return NextResponse.json({ error: 'action_not_permitted' }, { status: 403 });
   }
 
-  await writeLog({ apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, result: 'SUCCESS' });
-  return NextResponse.json({ token, userId: keyRecord.user_id, scope: keyRecord.scope });
+  await writeLog({ ...logBase, result: 'SUCCESS' });
+  return NextResponse.json({ token, userId: keyRecord.user_id, agentId: keyRecord.agent_id, scope: keyRecord.scope });
 }

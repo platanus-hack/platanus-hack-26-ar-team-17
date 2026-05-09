@@ -4,11 +4,13 @@ import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 
 jest.mock('@/lib/services/apiKey.service');
+jest.mock('@/lib/services/agent.service');
 jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn() },
 }));
 
 const { createApiKey, revokeApiKey } = require('@/lib/services/apiKey.service');
+const { getAgent } = require('@/lib/services/agent.service');
 const { supabase } = require('@/lib/db/supabase');
 
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
@@ -17,6 +19,8 @@ const validToken = jwt.sign(
   JWT_SECRET,
   { expiresIn: '1h' }
 );
+
+const validAgentId = '11111111-1111-4111-9111-111111111111';
 
 function makeReq(path: string, method: string, body?: object) {
   return new NextRequest(`http://localhost${path}`, {
@@ -31,7 +35,7 @@ describe('GET /api/keys', () => {
     supabase.from.mockReturnValueOnce({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue({ data: [{ id: 'k1', name: 'Agent', prefix: 'ak_test' }], error: null }),
+          order: jest.fn().mockResolvedValue({ data: [{ id: 'k1', name: 'default', prefix: 'ak_test' }], error: null }),
         }),
       }),
     });
@@ -47,16 +51,20 @@ describe('GET /api/keys', () => {
 });
 
 describe('POST /api/keys', () => {
-  it('creates a key and returns plainKey', async () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('creates a rotated key for an owned agent', async () => {
+    getAgent.mockResolvedValue({ id: validAgentId, user_id: 'user_1', name: 'WhatsApp', platform: 'whatsapp', scope: ['send_message'], status: 'ACTIVE' });
     createApiKey.mockResolvedValue({ id: 'k1', plainKey: 'ak_abc', prefix: 'ak_abc' });
-    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['send_message'] }));
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: validAgentId, name: 'rotated' }));
     expect(res.status).toBe(201);
     expect((await res.json()).plainKey).toBeDefined();
   });
 
-  it('returns 400 for invalid scope', async () => {
-    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['mass_send'] }));
-    expect(res.status).toBe(400);
+  it('returns 404 when the agent is not owned by the user', async () => {
+    getAgent.mockResolvedValue(null);
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: validAgentId, name: 'rotated' }));
+    expect(res.status).toBe(404);
   });
 });
 
@@ -70,23 +78,23 @@ describe('DELETE /api/keys/[id]', () => {
 });
 
 describe('POST /api/keys — edge cases', () => {
-  it('returns 400 when scope is an empty array (min(1) fails)', async () => {
-    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: [] }));
+  it('returns 400 when agent_id is missing', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'rotated' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when agent_id is not a uuid', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: 'not-a-uuid', name: 'rotated' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when name is an empty string', async () => {
-    const res = await POST(makeReq('/api/keys', 'POST', { name: '', scope: ['send_message'] }));
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: validAgentId, name: '' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when name exceeds 100 characters', async () => {
-    const res = await POST(makeReq('/api/keys', 'POST', { name: 'a'.repeat(101), scope: ['send_message'] }));
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 400 when scope is not an array', async () => {
-    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: 'send_message' }));
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: validAgentId, name: 'a'.repeat(101) }));
     expect(res.status).toBe(400);
   });
 });

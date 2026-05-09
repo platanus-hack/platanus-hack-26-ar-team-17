@@ -8,46 +8,62 @@ jest.mock('@/lib/db/supabase', () => ({
 
 const { supabase } = require('@/lib/db/supabase');
 
-function mockChain(singleResult: unknown) {
+function selectSingle(singleResult: unknown) {
   return {
     select: jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
         single: jest.fn().mockResolvedValue(singleResult),
       }),
     }),
-    insert: jest.fn().mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        single: jest.fn().mockResolvedValue(singleResult),
-      }),
-    }),
-    update: jest.fn().mockReturnValue({
-      eq: jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
-      }),
-    }),
   };
 }
 
 describe('validateApiKeyHash', () => {
-  it('returns the record for a valid active key hash', async () => {
+  it('returns the joined record for a valid active key hash', async () => {
     supabase.from.mockReturnValueOnce(
-      mockChain({ data: { id: 'key_1', user_id: 'user_1', key_hash: 'abc', scope: ['send_message'], status: 'ACTIVE' }, error: null })
+      selectSingle({
+        data: {
+          id: 'key_1',
+          agent_id: 'agent_1',
+          status: 'ACTIVE',
+          agents: { user_id: 'user_1', scope: ['send_message'], status: 'ACTIVE' },
+        },
+        error: null,
+      })
     );
-    expect(await validateApiKeyHash('abc')).toMatchObject({ id: 'key_1' });
+    expect(await validateApiKeyHash('abc')).toMatchObject({
+      id: 'key_1',
+      agent_id: 'agent_1',
+      user_id: 'user_1',
+      scope: ['send_message'],
+    });
   });
 
   it('returns null for unknown hash', async () => {
     supabase.from.mockReturnValueOnce(
-      mockChain({ data: null, error: { message: 'not found' } })
+      selectSingle({ data: null, error: { message: 'not found' } })
     );
     expect(await validateApiKeyHash('unknown')).toBeNull();
   });
 
   it('returns null for revoked key', async () => {
     supabase.from.mockReturnValueOnce(
-      mockChain({ data: { id: 'key_2', status: 'REVOKED' }, error: null })
+      selectSingle({
+        data: { id: 'key_2', agent_id: 'agent_2', status: 'REVOKED', agents: { user_id: 'u', scope: [], status: 'ACTIVE' } },
+        error: null,
+      })
     );
     expect(await validateApiKeyHash('revoked')).toBeNull();
+  });
+
+  it('returns null when the parent agent is disabled', async () => {
+    supabase.from.mockReturnValueOnce(
+      selectSingle({
+        data: { id: 'key_3', agent_id: 'agent_3', status: 'ACTIVE', agents: { user_id: 'u', scope: [], status: 'DISABLED' } },
+        error: null,
+      })
+    );
+    expect(await validateApiKeyHash('disabled-agent')).toBeNull();
   });
 });
 
@@ -60,20 +76,35 @@ describe('createApiKey', () => {
         }),
       }),
     });
-    const result = await createApiKey({ userId: 'u1', name: 'Agent', scope: ['send_message'] });
+    const result = await createApiKey({ agentId: 'agent_1', name: 'default' });
     expect(result.plainKey.startsWith('ak_')).toBe(true);
+    expect(result.id).toBe('key_3');
   });
 });
 
 describe('revokeApiKey', () => {
-  it('sets status to REVOKED', async () => {
-    supabase.from.mockReturnValueOnce({
-      update: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
+  beforeEach(() => jest.clearAllMocks());
+
+  it('revokes when the key belongs to the user', async () => {
+    supabase.from
+      .mockReturnValueOnce(selectSingle({
+        data: { id: 'key_1', agents: { user_id: 'user_1' } },
+        error: null,
+      }))
+      .mockReturnValueOnce({
+        update: jest.fn().mockReturnValue({
           eq: jest.fn().mockResolvedValue({ error: null }),
         }),
-      }),
-    });
+      });
     await expect(revokeApiKey('key_1', 'user_1')).resolves.not.toThrow();
+  });
+
+  it('no-ops when the key belongs to a different user', async () => {
+    supabase.from.mockReturnValueOnce(selectSingle({
+      data: { id: 'key_1', agents: { user_id: 'someone_else' } },
+      error: null,
+    }));
+    await expect(revokeApiKey('key_1', 'user_1')).resolves.not.toThrow();
+    expect(supabase.from).toHaveBeenCalledTimes(1);
   });
 });
