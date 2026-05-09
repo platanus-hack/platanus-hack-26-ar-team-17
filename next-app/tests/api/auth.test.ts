@@ -70,3 +70,46 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('POST /api/auth/register — edge cases', () => {
+  it('returns 400 when email is not a valid email address', async () => {
+    const res = await register(makeReq('/api/auth/register', { email: 'not-an-email', password: 'password123' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_request');
+  });
+
+  it('returns 400 when password is fewer than 8 characters', async () => {
+    const res = await register(makeReq('/api/auth/register', { email: 'a@b.com', password: 'short' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when email field is missing', async () => {
+    const res = await register(makeReq('/api/auth/register', { password: 'password123' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when body has no fields at all', async () => {
+    const res = await register(makeReq('/api/auth/register', {}));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/auth/login — edge cases', () => {
+  it('returns 401 for non-existent email (avoids 404 for user enumeration)', async () => {
+    supabase.from.mockReturnValueOnce({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: null, error: { message: 'not found' } }),
+        }),
+      }),
+    });
+
+    const res = await login(makeReq('/api/auth/login', { email: 'noone@b.com', password: 'password123' }));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 when email field is missing', async () => {
+    const res = await login(makeReq('/api/auth/login', { password: 'password123' }));
+    expect(res.status).toBe(400);
+  });
+});

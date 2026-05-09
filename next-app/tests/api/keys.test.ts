@@ -68,3 +68,49 @@ describe('DELETE /api/keys/[id]', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('POST /api/keys — edge cases', () => {
+  it('returns 400 when scope is an empty array (min(1) fails)', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: [] }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when name is an empty string', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { name: '', scope: ['send_message'] }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when name exceeds 100 characters', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'a'.repeat(101), scope: ['send_message'] }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when scope is not an array', async () => {
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'Agent', scope: 'send_message' }));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/keys — edge cases', () => {
+  it('returns empty array when user has no keys', async () => {
+    supabase.from.mockReturnValueOnce({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          order: jest.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }),
+    });
+
+    const res = await GET(makeReq('/api/keys', 'GET'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+});
+
+describe('DELETE /api/keys/[id] — edge cases', () => {
+  it('returns 401 without auth token', async () => {
+    const req = new NextRequest('http://localhost/api/keys/k1', { method: 'DELETE' });
+    const res = await DELETE(req, { params: Promise.resolve({ id: 'k1' }) });
+    expect(res.status).toBe(401);
+  });
+});
