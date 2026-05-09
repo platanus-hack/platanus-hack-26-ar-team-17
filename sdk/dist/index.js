@@ -10,12 +10,10 @@ function fromEnv(name) {
 class ZeroGateSDK {
     apiKey;
     userHash;
-    platformApiUrl;
     platform;
     constructor(config = {}) {
         this.apiKey = config.apiKey ?? fromEnv('ZERO_API_KEY') ?? '';
         this.userHash = config.userHash ?? fromEnv('ZERO_USER_HASH') ?? '';
-        this.platformApiUrl = (0, detect_1.detectPlatformApiUrl)();
         this.platform = (0, detect_1.detectPlatform)();
         if (!this.apiKey) {
             throw new Error('Missing apiKey — set ZERO_API_KEY env or pass apiKey to constructor');
@@ -34,7 +32,7 @@ class ZeroGateSDK {
             platform: this.platform,
             text: request.text ?? '',
             executedAt,
-            platformApiUrl: this.platformApiUrl,
+            platformApiUrl: detect_1.PLATFORM_API_URL,
         });
         if (!apiResponse.valid) {
             return { allowed: false, executedAt, error: apiResponse.error ?? 'invalid_credentials' };

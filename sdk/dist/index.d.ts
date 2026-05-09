@@ -2,7 +2,6 @@ import { AgentRequest, PipelineResult, SDKConfig } from './types';
 export declare class ZeroGateSDK {
     private apiKey;
     private userHash;
-    private platformApiUrl;
     private platform;
     constructor(config?: SDKConfig);
     run(request?: AgentRequest): Promise<PipelineResult>;

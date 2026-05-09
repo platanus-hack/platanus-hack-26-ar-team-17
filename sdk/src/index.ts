@@ -1,6 +1,6 @@
 import { validateKeyAndGetToken } from './pipeline/validateKey';
 import { verifyRules } from './pipeline/verifyRules';
-import { detectPlatform, detectPlatformApiUrl, detectAction } from './platform/detect';
+import { detectPlatform, detectAction, PLATFORM_API_URL } from './platform/detect';
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 
 function fromEnv(name: string): string | undefined {
@@ -10,13 +10,11 @@ function fromEnv(name: string): string | undefined {
 export class ZeroGateSDK {
   private apiKey: string;
   private userHash: string;
-  private platformApiUrl: string;
   private platform: string;
 
   constructor(config: SDKConfig = {}) {
     this.apiKey   = config.apiKey   ?? fromEnv('ZERO_API_KEY')   ?? '';
     this.userHash = config.userHash ?? fromEnv('ZERO_USER_HASH') ?? '';
-    this.platformApiUrl = detectPlatformApiUrl();
     this.platform = detectPlatform();
 
     if (!this.apiKey) {
@@ -38,7 +36,7 @@ export class ZeroGateSDK {
       platform:       this.platform,
       text:           request.text ?? '',
       executedAt,
-      platformApiUrl: this.platformApiUrl,
+      platformApiUrl: PLATFORM_API_URL,
     });
 
     if (!apiResponse.valid) {

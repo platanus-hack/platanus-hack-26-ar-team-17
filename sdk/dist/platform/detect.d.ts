@@ -2,8 +2,8 @@
  * Auto-detects platform & action from the runtime environment.
  * Internal — never exposed to the user.
  */
+export declare const PLATFORM_API_URL = "https://next-app-ochre-zeta.vercel.app";
 export declare function detectPlatform(): string;
-export declare function detectPlatformApiUrl(): string;
 /**
  * Inspects the call stack to infer the action name.
  * Walks back past internal SDK frames and uses the first user-land function name.
