@@ -3,23 +3,35 @@ import { verifyRules } from './pipeline/verifyRules';
 import { detectPlatform } from './platform/detect';
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 
+const DEFAULT_PLATFORM_URL = 'https://next-app-ochre-zeta.vercel.app';
+
+function fromEnv(name: string): string | undefined {
+  return typeof process !== 'undefined' ? process.env[name] : undefined;
+}
+
 export class ZeroGateSDK {
   private apiKey: string;
   private userHash: string;
   private platformApiUrl: string;
   private platform: string;
 
-  constructor(config: SDKConfig) {
-    if (!config.platformApiUrl.startsWith('https://')) {
+  constructor(config: SDKConfig = {}) {
+    this.apiKey   = config.apiKey   ?? fromEnv('ZERO_API_KEY')   ?? '';
+    this.userHash = config.userHash ?? fromEnv('ZERO_USER_HASH') ?? '';
+    this.platformApiUrl = config.platformApiUrl
+      ?? fromEnv('ZERO_PLATFORM_URL')
+      ?? DEFAULT_PLATFORM_URL;
+    this.platform = detectPlatform(config.platform);
+
+    if (!this.apiKey) {
+      throw new Error('Missing apiKey — set ZERO_API_KEY env or pass apiKey to constructor');
+    }
+    if (!this.userHash) {
+      throw new Error('Missing userHash — set ZERO_USER_HASH env or pass userHash to constructor');
+    }
+    if (!this.platformApiUrl.startsWith('https://')) {
       throw new Error('platformApiUrl must use HTTPS');
     }
-    if (!config.apiKey) throw new Error('apiKey is required');
-    if (!config.userHash) throw new Error('userHash is required');
-
-    this.apiKey = config.apiKey;
-    this.userHash = config.userHash;
-    this.platformApiUrl = config.platformApiUrl;
-    this.platform = detectPlatform(config.platform);
   }
 
   async run(request: AgentRequest): Promise<PipelineResult> {
@@ -45,11 +57,11 @@ export class ZeroGateSDK {
     }
 
     return {
-      allowed:   true,
+      allowed:    true,
       executedAt,
-      token:     apiResponse.token,
-      userId:    apiResponse.userId,
-      agentId:   apiResponse.agentId,
+      token:      apiResponse.token,
+      userId:     apiResponse.userId,
+      agentId:    apiResponse.agentId,
     };
   }
 }

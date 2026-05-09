@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
-const PLATFORM_URL = 'https://zero-gate-agents.vercel.app';
+const PLATFORM_URL = 'https://next-app-ochre-zeta.vercel.app';
 
 function CodeBlock({ code, label, lang = 'ts' }: { code: string; label?: string; lang?: string }) {
   return (

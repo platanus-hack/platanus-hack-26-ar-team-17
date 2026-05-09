@@ -1,15 +1,24 @@
 export interface SDKConfig {
-  /** API key for the agent (from Zero dashboard) */
-  apiKey: string;
-  /** User hash (from Zero dashboard) — ties the key to your account */
-  userHash: string;
-  /** Zero Platform API base URL */
-  platformApiUrl: string;
   /**
-   * Platform identifier. If omitted, auto-detected from environment:
+   * API key for the agent. Defaults to env var ZERO_API_KEY.
+   * In MCP context: set via the MCP server's env config in Claude Desktop.
+   */
+  apiKey?: string;
+  /**
+   * User hash. Defaults to env var ZERO_USER_HASH.
+   * In MCP context: set via the MCP server's env config in Claude Desktop.
+   */
+  userHash?: string;
+  /**
+   * Zero Platform API base URL.
+   * Defaults to env var ZERO_PLATFORM_URL or the production URL.
+   */
+  platformApiUrl?: string;
+  /**
+   * Platform identifier. Auto-detected if omitted:
    *   1. ZERO_PLATFORM env var
    *   2. MCP SDK in process → 'mcp'
-   *   3. Falls back to 'custom'
+   *   3. 'custom'
    */
   platform?: string;
 }

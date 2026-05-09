@@ -1,7 +1,10 @@
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 export declare class ZeroGateSDK {
-    private config;
-    constructor(config: SDKConfig);
+    private apiKey;
+    private userHash;
+    private platformApiUrl;
+    private platform;
+    constructor(config?: SDKConfig);
     run(request: AgentRequest): Promise<PipelineResult>;
 }
 export type { AgentRequest, PipelineResult, SDKConfig } from './types';

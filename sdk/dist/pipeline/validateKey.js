@@ -12,11 +12,12 @@ function hashKey(key) {
     return crypto_1.default.createHash('sha256').update(key).digest('hex');
 }
 async function validateKeyAndGetToken(params) {
-    const response = await (0, client_1.post)(`${params.platformApiUrl}/api/validate`, {
-        api_key_hash: hashKey(params.apiKey),
+    return (0, client_1.post)(`${params.platformApiUrl}/api/validate`, {
+        api_key: hashKey(params.apiKey),
+        user_hash: params.userHash,
         action: (0, action_1.normalizeAction)(params.action),
         platform: params.platform,
-        text: (0, text_1.normalizeText)(params.text ?? ''),
+        text: (0, text_1.normalizeText)(params.text),
+        executed_at: params.executedAt,
     });
-    return response;
 }
