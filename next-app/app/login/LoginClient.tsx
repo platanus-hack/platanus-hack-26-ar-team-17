@@ -101,10 +101,6 @@ export default function LoginClient() {
           </div>
         </div>
 
-        <p className="auth-footer">
-          Don't have an account?{' '}
-          <Link href="/register" className="z-link">Create one</Link>
-        </p>
       </div>
     </main>
   );
