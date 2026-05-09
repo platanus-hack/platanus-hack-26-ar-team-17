@@ -3,124 +3,72 @@ import * as client from '../src/http/client';
 
 jest.mock('../src/http/client');
 
-const sdk = new ZeroGateSDK({ platformApiUrl: 'https://api.example.com' });
-
 describe('ZeroGateSDK.run', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    delete process.env.ZERO_API_KEY;
+    delete process.env.ZERO_USER_HASH;
+    delete process.env.ZERO_PLATFORM;
+  });
 
   it('returns allowed: true for a valid request', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: true,
-      token: 'jwt.token.here',
-      userId: 'user_1',
-      scope: ['send_message'],
-    });
+    (client.post as jest.Mock).mockResolvedValue({ allowed: true });
 
-    const result = await sdk.run({
-      apiKey: 'ak_validkey',
-      action: 'send_message',
-      platform: 'whatsapp',
-      text: 'Hello',
-    });
+    const sdk = new ZeroGateSDK({ apiKey: 'ak_validkey', userHash: 'user_hash_1' });
+    const result = await sdk.run();
 
     expect(result.allowed).toBe(true);
-    expect(result.token).toBe('jwt.token.here');
+    expect(client.post).toHaveBeenCalledWith(
+      'https://next-app-ochre-zeta.vercel.app/api/validate',
+      expect.objectContaining({
+        token: 'ak_validkey',
+        hash: 'user_hash_1',
+        action: expect.any(String),
+        platform: expect.any(String),
+      })
+    );
   });
 
-  it('returns allowed: false for an invalid key', async () => {
-    (client.post as jest.Mock).mockResolvedValue({ valid: false, error: 'invalid_api_key' });
+  it('returns allowed: false for a denied request', async () => {
+    (client.post as jest.Mock).mockResolvedValue({ allowed: false });
 
-    const result = await sdk.run({
-      apiKey: 'ak_badkey',
-      action: 'send_message',
-      platform: 'whatsapp',
-      text: '',
-    });
+    const sdk = new ZeroGateSDK({ apiKey: 'ak_badkey', userHash: 'user_hash_1' });
+    const result = await sdk.run();
 
     expect(result.allowed).toBe(false);
-    expect(result.error).toBe('invalid_api_key');
   });
 
-  it('returns allowed: false when action is blocked by rules', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: false,
-      error: 'action_not_permitted',
-    });
+  it('reads credentials and platform from environment variables', async () => {
+    process.env.ZERO_API_KEY = 'ak_env';
+    process.env.ZERO_USER_HASH = 'hash_env';
+    process.env.ZERO_PLATFORM = 'whatsapp';
+    (client.post as jest.Mock).mockResolvedValue({ allowed: true });
 
-    const result = await sdk.run({
-      apiKey: 'ak_validkey',
-      action: 'mass_send',
-      platform: 'whatsapp',
-      text: 'spam',
-    });
+    const sdk = new ZeroGateSDK();
+    await sdk.run();
 
-    expect(result.allowed).toBe(false);
-    expect(result.error).toBe('action_not_permitted');
-  });
-
-  it('returns allowed: false when action is out of scope', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: true,
-      token: 'jwt',
-      userId: 'user_1',
-      scope: ['read_messages'],
-    });
-
-    const result = await sdk.run({
-      apiKey: 'ak_validkey',
-      action: 'send_message',
-      platform: 'whatsapp',
-      text: 'hello',
-    });
-
-    expect(result.allowed).toBe(false);
-    expect(result.error).toBe('action_not_permitted');
+    expect(client.post).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        token: 'ak_env',
+        hash: 'hash_env',
+        platform: 'whatsapp',
+      })
+    );
   });
 });
 
 describe('ZeroGateSDK constructor', () => {
-  it('throws when platformApiUrl uses http://', () => {
-    expect(() => new ZeroGateSDK({ platformApiUrl: 'http://api.example.com' }))
-      .toThrow('HTTPS');
+  beforeEach(() => {
+    delete process.env.ZERO_API_KEY;
+    delete process.env.ZERO_USER_HASH;
   });
 
-  it('throws when platformApiUrl has no protocol', () => {
-    expect(() => new ZeroGateSDK({ platformApiUrl: 'api.example.com' }))
-      .toThrow();
-  });
-});
-
-describe('ZeroGateSDK.run — additional edge cases', () => {
-  const sdk2 = new ZeroGateSDK({ platformApiUrl: 'https://api.example.com' });
-  beforeEach(() => jest.clearAllMocks());
-
-  it('run with undefined text does not crash (text is optional)', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: true, token: 'tok', userId: 'u1', scope: ['send_message'],
-    });
-
-    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp' });
-    expect(result.allowed).toBe(true);
+  it('throws when apiKey is missing', () => {
+    expect(() => new ZeroGateSDK({ userHash: 'hash' })).toThrow('Missing apiKey');
   });
 
-  it('returns allowed: false when API returns empty scope array', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: true, token: 'tok', userId: 'u1', scope: [],
-    });
-
-    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp', text: 'hi' });
-    expect(result.allowed).toBe(false);
-    expect(result.error).toBe('action_not_permitted');
-  });
-
-  it('returns allowed: false when API returns valid:true but scope is undefined', async () => {
-    (client.post as jest.Mock).mockResolvedValue({
-      valid: true, token: 'tok', userId: 'u1',
-      // scope intentionally absent
-    });
-
-    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp', text: 'hi' });
-    expect(result.allowed).toBe(false);
-    expect(result.error).toBe('action_not_permitted');
+  it('throws when userHash is missing', () => {
+    expect(() => new ZeroGateSDK({ apiKey: 'ak_key' })).toThrow('Missing userHash');
   });
 });

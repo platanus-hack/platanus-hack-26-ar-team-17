@@ -116,8 +116,8 @@ export default function DocsPage() {
           <CodeBlock label="npm" code="npm install @zero-gate/sdk" />
           <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: -8, lineHeight: 1.8 }}>
             Not on npm yet?{' '}
-            <code style={{ color: 'var(--text-dim)' }}>"@zero-gate/sdk": "file:../zero-sdk"</code>{' '}
-            or install from the GitHub repo.
+            <code style={{ color: 'var(--text-dim)' }}>npm install ../sdk/zero-gate-sdk-1.0.0.tgz</code>{' '}
+            from this repo.
           </p>
         </Section>
 
@@ -129,7 +129,7 @@ export default function DocsPage() {
           </InfoBox>
           <CodeBlock
             label="Dashboard → API Keys → New Key"
-            code={`apiKey:   sk_abc1234...   ← unique per agent
+            code={`apiKey:   ak_abc1234...   ← unique per agent
 userHash: a1b2c3d4...   ← same for all your agents`}
           />
         </Section>
@@ -159,7 +159,7 @@ const zero = new ZeroGateSDK();`}
       "command": "node",
       "args": ["server.js"],
       "env": {
-        "ZERO_API_KEY":   "sk_abc1234...",
+        "ZERO_API_KEY":   "ak_abc1234...",
         "ZERO_USER_HASH": "a1b2c3d4..."
       }
     }
@@ -176,11 +176,11 @@ const zero = new ZeroGateSDK();`}
           <CodeBlock
             label="usage"
             code={`async function sendMessage(text: string) {
-  const result = await zero.run({ text });
+  const result = await zero.run();
   // action='sendMessage' inferred from this function name
 
   if (!result.allowed) {
-    console.error('blocked:', result.error);
+    console.error('blocked');
     return;
   }
 
@@ -193,18 +193,12 @@ const zero = new ZeroGateSDK();`}
             label="PipelineResult"
             code={`// Allowed
 {
-  allowed:    true,
-  token:      string,   // JWT for downstream auth
-  userId:     string,
-  agentId:    string,
-  executedAt: string,   // ISO timestamp (agent clock)
+  allowed: true
 }
 
 // Blocked
 {
-  allowed:    false,
-  executedAt: string,
-  error: 'invalid_credentials' | 'action_not_permitted' | 'rate_limit_exceeded'
+  allowed: false
 }`}
           />
         </Section>
@@ -223,13 +217,11 @@ const zero = new ZeroGateSDK();
 // platform = 'mcp' (auto), URL = production (auto)
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const result = await zero.run({
-    text: JSON.stringify(req.params.arguments),
-  });
+  const result = await zero.run();
   // action = MCP tool name (auto-detected)
 
   if (!result.allowed) {
-    return { content: [{ type: 'text', text: \`Blocked: \${result.error}\` }] };
+    return { content: [{ type: 'text', text: 'Blocked by Zero Gate' }] };
   }
 
   // execute tool...
@@ -241,10 +233,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--z-border)', borderRadius: 12, padding: '22px 26px', marginBottom: 48 }}>
           <p style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Security</p>
           <ul style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 2, paddingLeft: 18, margin: 0 }}>
-            <li>API key is <strong>hashed with SHA-256</strong> before leaving your machine — never sent in plain text.</li>
+            <li>API key validation happens over enforced HTTPS.</li>
             <li><code style={mono}>userHash</code> + <code style={mono}>apiKey</code> are cross-validated server-side — a leaked key alone is useless.</li>
-            <li>HTTPS enforced — passing <code style={mono}>http://</code> throws at SDK init.</li>
-            <li>Every <code style={mono}>run()</code> call is logged with agent-side <code style={mono}>executedAt</code> timestamp.</li>
+            <li>Plain HTTP requests are rejected by the SDK transport.</li>
+            <li>Every allowed <code style={mono}>run()</code> call is logged by the platform API.</li>
           </ul>
         </div>
 
