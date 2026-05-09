@@ -56,5 +56,5 @@ export async function POST(req: NextRequest) {
   }
 
   await writeLog({ ...logBase, result: 'SUCCESS' });
-  return NextResponse.json({ token, userId: keyRecord.user_id, agentId: keyRecord.agent_id, scope: keyRecord.scope });
+  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id, agentId: keyRecord.agent_id, scope: keyRecord.scope });
 }
