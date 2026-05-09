@@ -137,18 +137,16 @@ userHash: a1b2c3d4...   ← same for all your agents`}
         {/* Step 3 — Initialize once */}
         <Section tag="03" title="Initialize — zero config">
           <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
-            By default the SDK reads credentials from env vars and uses the production Zero URL. No constructor arguments needed.
+            The SDK reads credentials from env vars. URL, platform and action are auto-detected — no extra config needed.
           </p>
           <CodeBlock
-            label="server.ts (e.g. your MCP server)"
+            label="server.ts"
             code={`import { ZeroGateSDK } from '@zero-gate/sdk';
 
-// Reads ZERO_API_KEY + ZERO_USER_HASH from env automatically.
-// Auto-detects platform ('mcp' if @modelcontextprotocol/sdk is installed).
 const zero = new ZeroGateSDK();`}
           />
           <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 18px', lineHeight: 1.7 }}>
-            Override only if needed: <code style={{ color: 'var(--text-dim)' }}>{`new ZeroGateSDK({ apiKey, userHash, platformApiUrl })`}</code>
+            Override creds if needed: <code style={{ color: 'var(--text-dim)' }}>{`new ZeroGateSDK({ apiKey, userHash })`}</code>
           </p>
           <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.7 }}>
             The user connecting to your MCP server provides the credentials via Claude Desktop config:
@@ -173,23 +171,22 @@ const zero = new ZeroGateSDK();`}
         {/* Step 4 — Run */}
         <Section tag="04" title="Wrap every action with sdk.run()">
           <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
-            Call <code style={mono}>run()</code> before executing any action. It validates the key, checks global rules, and writes the audit log — including the exact timestamp from the agent side.
+            Call <code style={mono}>run()</code> before executing any action. The SDK auto-infers the action from the calling function name.
           </p>
           <CodeBlock
             label="usage"
-            code={`const result = await zero.run({
-  action: 'send_message',
-  text:   'Hello from agent!',
-  // platform: override per-call if needed
-});
+            code={`async function sendMessage(text: string) {
+  const result = await zero.run({ text });
+  // action='sendMessage' inferred from this function name
 
-if (!result.allowed) {
-  console.error('blocked:', result.error);
-  return;
-}
+  if (!result.allowed) {
+    console.error('blocked:', result.error);
+    return;
+  }
 
-// ✓ proceed with the action
-await sendMessage(result.token, 'Hello from agent!');`}
+  // ✓ proceed
+  await deliverToWhatsapp(text);
+}`}
           />
 
           <CodeBlock
@@ -222,14 +219,14 @@ await sendMessage(result.token, 'Hello from agent!');`}
             code={`import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { ZeroGateSDK } from '@zero-gate/sdk';
 
-// Zero-config: reads env vars set by the user in Claude Desktop config.
 const zero = new ZeroGateSDK();
+// platform = 'mcp' (auto), URL = production (auto)
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
   const result = await zero.run({
-    action: req.params.name,
-    text:   JSON.stringify(req.params.arguments),
+    text: JSON.stringify(req.params.arguments),
   });
+  // action = MCP tool name (auto-detected)
 
   if (!result.allowed) {
     return { content: [{ type: 'text', text: \`Blocked: \${result.error}\` }] };

@@ -5,7 +5,7 @@ export declare class ZeroGateSDK {
     private platformApiUrl;
     private platform;
     constructor(config?: SDKConfig);
-    run(request: AgentRequest): Promise<PipelineResult>;
+    run(request?: AgentRequest): Promise<PipelineResult>;
 }
 export type { AgentRequest, PipelineResult, SDKConfig } from './types';
 //# sourceMappingURL=index.d.ts.map

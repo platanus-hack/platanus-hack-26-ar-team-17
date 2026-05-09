@@ -9,25 +9,11 @@ export interface SDKConfig {
    * In MCP context: set via the MCP server's env config in Claude Desktop.
    */
   userHash?: string;
-  /**
-   * Zero Platform API base URL.
-   * Defaults to env var ZERO_PLATFORM_URL or the production URL.
-   */
-  platformApiUrl?: string;
-  /**
-   * Platform identifier. Auto-detected if omitted:
-   *   1. ZERO_PLATFORM env var
-   *   2. MCP SDK in process → 'mcp'
-   *   3. 'custom'
-   */
-  platform?: string;
 }
 
 export interface AgentRequest {
-  action: string;
+  /** Optional payload / text content to validate against global rules */
   text?: string;
-  /** Override platform for this specific request */
-  platform?: string;
 }
 
 export interface ValidationResponse {
