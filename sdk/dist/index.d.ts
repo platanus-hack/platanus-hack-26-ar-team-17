@@ -1,10 +1,15 @@
-import { AgentRequest, PipelineResult, SDKConfig } from './types';
+export interface SDKConfig {
+    apiKey?: string;
+    userHash?: string;
+}
+export interface RunResult {
+    allowed: boolean;
+}
 export declare class ZeroGateSDK {
     private apiKey;
     private userHash;
     private platform;
     constructor(config?: SDKConfig);
-    run(request?: AgentRequest): Promise<PipelineResult>;
+    run(): Promise<RunResult>;
 }
-export type { AgentRequest, PipelineResult, SDKConfig } from './types';
 //# sourceMappingURL=index.d.ts.map

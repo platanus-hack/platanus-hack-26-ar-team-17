@@ -1,61 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { validateApiKeyAndHash } from '@/lib/services/apiKey.service';
-import { issueToken, verifyToken, isTokenRevoked } from '@/lib/services/token.service';
-import { checkGlobalRules } from '@/lib/services/rules.service';
-import { writeLog } from '@/lib/services/auditLog.service';
-import { checkRateLimit } from '@/lib/rateLimiter';
+import { supabase } from '@/lib/db/supabase';
+import { hashApiKey } from '@/lib/utils/crypto';
 
 const bodySchema = z.object({
-  api_key:     z.string().min(1),
-  user_hash:   z.string().min(1),
-  action:      z.string().min(1),
-  platform:    z.string().min(1),
-  text:        z.string().default(''),
-  executed_at: z.string().datetime().optional(),
+  token:     z.string().min(1),  // the api key (plain) — we hash here
+  hash:      z.string().min(1),  // user hash
+  action:    z.string().min(1),
+  platform:  z.string().min(1),
 });
 
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!await checkRateLimit(ip)) return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 });
+  let body: unknown;
+  try { body = await req.json(); }
+  catch { return NextResponse.json({ allowed: false }, { status: 200 }); }
 
-  let rawBody: unknown;
-  try { rawBody = await req.json(); }
-  catch { return NextResponse.json({ error: 'invalid_request' }, { status: 400 }); }
+  const parsed = bodySchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ allowed: false }, { status: 200 });
 
-  const parsed = bodySchema.safeParse(rawBody);
-  if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
+  const { token, hash, action, platform } = parsed.data;
+  const keyHash = hashApiKey(token);
 
-  const { api_key, user_hash, action, platform, text, executed_at } = parsed.data;
+  const { data } = await supabase
+    .from('api_keys')
+    .select('id, agent_id, status, agents!inner(user_id, status, users!inner(hash))')
+    .eq('key_hash', keyHash)
+    .single<{ id: string; agent_id: string; status: string; agents: { user_id: string; status: string; users: { hash: string } } }>();
 
-  const keyRecord = await validateApiKeyAndHash(api_key, user_hash);
-  if (!keyRecord) {
-    await writeLog({ agentId: null, apiKeyId: null, userId: null, action, platform, userInput: text, result: 'BLOCKED_INVALID_KEY' });
-    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+  const allowed =
+    !!data &&
+    data.status === 'ACTIVE' &&
+    data.agents?.status === 'ACTIVE' &&
+    data.agents?.users?.hash === hash;
+
+  // fire-and-forget audit log (doesn't block response)
+  if (allowed && data) {
+    void supabase.from('audit_logs').insert({
+      agent_id:   data.agent_id,
+      api_key_id: data.id,
+      user_id:    data.agents.user_id,
+      action,
+      platform,
+      result:     'SUCCESS',
+      checksum:   '',
+      prev_checksum: '',
+    });
   }
 
-  const logBase = {
-    agentId:    keyRecord.agent_id,
-    apiKeyId:   keyRecord.id,
-    userId:     keyRecord.user_id,
-    action,
-    platform,
-    userInput:  text,
-    executedAt: executed_at,
-  };
-
-  const token = await issueToken({ userId: keyRecord.user_id, apiKeyId: keyRecord.id });
-  const decoded = await verifyToken(token);
-  if (await isTokenRevoked(decoded.jti)) {
-    return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
-  }
-
-  const ruleCheck = await checkGlobalRules({ action, text });
-  if (ruleCheck.blocked) {
-    await writeLog({ ...logBase, result: 'BLOCKED_RULE', ruleViolated: ruleCheck.ruleViolated });
-    return NextResponse.json({ error: 'action_not_permitted' }, { status: 403 });
-  }
-
-  await writeLog({ ...logBase, result: 'SUCCESS' });
-  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id, agentId: keyRecord.agent_id });
+  return NextResponse.json({ allowed });
 }

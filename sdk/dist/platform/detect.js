@@ -1,8 +1,4 @@
 "use strict";
-/**
- * Auto-detects platform & action from the runtime environment.
- * Internal — never exposed to the user.
- */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PLATFORM_API_URL = void 0;
 exports.detectPlatform = detectPlatform;
@@ -20,11 +16,6 @@ function detectPlatform() {
     catch { }
     return 'custom';
 }
-/**
- * Inspects the call stack to infer the action name.
- * Walks back past internal SDK frames and uses the first user-land function name.
- * Falls back to 'execute' if not determinable.
- */
 function detectAction() {
     const err = new Error();
     const stack = err.stack ?? '';

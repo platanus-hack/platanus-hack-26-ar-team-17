@@ -1,13 +1,12 @@
-import { ValidationResponse } from '../types';
 interface ValidateParams {
-    apiKey: string;
-    userHash: string;
+    token: string;
+    hash: string;
     action: string;
     platform: string;
-    text: string;
-    executedAt: string;
     platformApiUrl: string;
 }
-export declare function validateKeyAndGetToken(params: ValidateParams): Promise<ValidationResponse>;
+export declare function validate(params: ValidateParams): Promise<{
+    allowed: boolean;
+}>;
 export {};
 //# sourceMappingURL=validateKey.d.ts.map
