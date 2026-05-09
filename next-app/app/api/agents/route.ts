@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUserId } from '@/lib/auth';
 import { createAgent, listAgents } from '@/lib/services/agent.service';
-import { ALLOWED_ACTIONS } from '@/lib/services/scope.service';
 
 const createBody = z.object({
   name: z.string().min(1).max(100),
   platform: z.string().min(1).max(50),
-  scope: z.array(z.enum([...ALLOWED_ACTIONS] as [string, ...string[]])).min(1),
 });
 
 export async function GET(req: NextRequest) {

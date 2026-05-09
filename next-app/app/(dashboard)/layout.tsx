@@ -6,13 +6,15 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 const nav = [
-  { href: '/agents', label: 'Agents', icon: '◈' },
+  { href: '/keys', label: 'API Keys', icon: '⬡' },
   { href: '/audit-log', label: 'Audit Log', icon: '≡' },
   { href: '/alerts', label: 'Alerts', icon: '⚠' },
 ];
 
+const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { token, logout } = useAuth();
+  const { token, kycStatus, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -20,50 +22,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (mounted && !token) router.push('/login');
-  }, [mounted, token, router]);
+    if (!mounted) return;
+    if (!token) { router.push('/login'); return; }
+    if (kycStatus && kycStatus !== 'VERIFIED') router.push('/kyc');
+  }, [mounted, token, kycStatus, router]);
 
   if (!mounted || !token) return (
     <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#3a3a3a' }}>loading…</span>
+      <span style={{ ...mono, fontSize: 12, color: '#3a3a3a' }}>loading…</span>
     </div>
   );
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#050505', position: 'relative' }}>
-      {/* Grid bg */}
+      {/* Dot grid */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)',
-        backgroundSize: '40px 40px',
-        maskImage: 'radial-gradient(ellipse at 20% 50%, black 20%, transparent 70%)',
+        backgroundImage: 'radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+        maskImage: 'radial-gradient(ellipse 60% 80% at 20% 50%, black 30%, transparent 80%)',
       }} />
       {/* Glow */}
       <div style={{
-        position: 'fixed', bottom: '-200px', right: '-100px', width: '600px', height: '600px',
-        background: 'radial-gradient(circle, rgba(200,245,66,0.12) 0%, transparent 60%)',
-        filter: 'blur(60px)', pointerEvents: 'none', zIndex: 0,
-        animation: 'breathe 7s ease-in-out infinite',
+        position: 'fixed', bottom: '-15%', right: '-5%', width: '50vw', height: '50vw',
+        background: 'radial-gradient(circle, rgba(200,245,66,0.09) 0%, transparent 60%)',
+        filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0,
+        animation: 'breathe 8s ease-in-out infinite',
       }} />
 
       {/* Sidebar */}
       <aside style={{
-        width: 220, flexShrink: 0,
-        borderRight: '1px solid #1c1c1c',
+        width: 224, flexShrink: 0,
+        borderRight: '1px solid rgba(255,255,255,0.06)',
         display: 'flex', flexDirection: 'column',
         position: 'fixed', top: 0, left: 0, bottom: 0,
-        zIndex: 10, background: 'rgba(5,5,5,0.9)',
-        backdropFilter: 'blur(16px)',
+        zIndex: 10, background: 'rgba(5,5,5,0.92)',
+        backdropFilter: 'blur(20px)',
       }}>
-        <div style={{ padding: '24px 20px', borderBottom: '1px solid #1c1c1c' }}>
-          <Link href="/agents" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 0 }}>
-            <span style={{ fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif', fontWeight: 300, fontSize: 22, letterSpacing: '-0.04em', color: '#fafafa' }}>zero</span>
-            <span style={{ color: '#c8f542', fontSize: 22, fontWeight: 300 }}>.</span>
+        {/* Logo */}
+        <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <Link href="/keys" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 0 }}>
+            <span style={{
+              fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif',
+              fontWeight: 600, fontSize: 20, letterSpacing: '-0.05em', color: 'var(--text)',
+            }}>zero</span>
+            <span style={{ color: 'var(--accent)', fontSize: 22, fontWeight: 600 }}>.</span>
           </Link>
-          <p style={{ fontFamily: 'var(--font-jetbrains), monospace', fontSize: 10, color: '#3a3a3a', marginTop: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>dashboard</p>
+          <p style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', marginTop: 5, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            dashboard
+          </p>
         </div>
 
-        <nav style={{ flex: 1, padding: '12px 8px' }}>
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '10px 10px' }}>
           {nav.map(({ href, label, icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/');
             return (
@@ -72,43 +83,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={href}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '10px 12px', borderRadius: 6, marginBottom: 2,
-                  fontFamily: 'var(--font-jetbrains), monospace', fontSize: 12,
+                  padding: '9px 12px', borderRadius: 7, marginBottom: 2,
+                  ...mono, fontSize: 12,
                   textDecoration: 'none',
                   transition: 'all 120ms ease',
                   background: active ? 'rgba(200,245,66,0.07)' : 'transparent',
-                  color: active ? '#c8f542' : '#8a8a8a',
-                  border: active ? '1px solid rgba(200,245,66,0.2)' : '1px solid transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-dim)',
+                  border: active ? '1px solid rgba(200,245,66,0.18)' : '1px solid transparent',
                 }}
               >
-                <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>
+                <span style={{ fontSize: 13, lineHeight: 1, opacity: active ? 1 : 0.7 }}>{icon}</span>
                 {label}
               </Link>
             );
           })}
         </nav>
 
-        <div style={{ padding: '12px 8px', borderTop: '1px solid #1c1c1c' }}>
+        {/* KYC badge if verified */}
+        {kycStatus === 'VERIFIED' && (
+          <div style={{ padding: '8px 10px' }}>
+            <div style={{
+              ...mono, fontSize: 10, color: 'var(--accent)',
+              background: 'rgba(200,245,66,0.06)',
+              border: '1px solid rgba(200,245,66,0.15)',
+              borderRadius: 6, padding: '6px 10px',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ animation: 'pulse 2s ease-in-out infinite', fontSize: 8 }}>●</span>
+              Identity verified
+            </div>
+          </div>
+        )}
+
+        {/* Sign out */}
+        <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             onClick={logout}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 12px', borderRadius: 6, width: '100%',
-              fontFamily: 'var(--font-jetbrains), monospace', fontSize: 12,
+              padding: '9px 12px', borderRadius: 7, width: '100%',
+              ...mono, fontSize: 12,
               background: 'none', border: 'none', cursor: 'pointer',
-              color: '#5a5a5a', transition: 'color 120ms ease',
+              color: 'var(--text-muted)', transition: 'color 120ms ease',
             }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#fafafa')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#5a5a5a')}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
-            <span style={{ fontSize: 14 }}>↩</span>
+            <span style={{ fontSize: 13 }}>↩</span>
             Sign out
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main style={{ flex: 1, marginLeft: 220, position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+      {/* Content */}
+      <main style={{ flex: 1, marginLeft: 224, position: 'relative', zIndex: 1, minHeight: '100vh' }}>
         {children}
       </main>
     </div>

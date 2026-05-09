@@ -8,7 +8,6 @@ export interface ValidationResponse {
     valid: boolean;
     token?: string;
     userId?: string;
-    scope?: string[];
     error?: string;
 }
 export interface PipelineResult {

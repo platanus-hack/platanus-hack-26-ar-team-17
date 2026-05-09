@@ -6,7 +6,6 @@ import { supabase } from '../db/supabase';
 interface TokenPayload {
   userId: string;
   apiKeyId: string;
-  scope: string[];
 }
 
 export interface DecodedToken extends TokenPayload {

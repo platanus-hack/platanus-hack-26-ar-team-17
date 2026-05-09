@@ -1,5 +1,4 @@
 import { validateKeyAndGetToken } from './pipeline/validateKey';
-import { verifyScope } from './pipeline/verifyScope';
 import { verifyRules } from './pipeline/verifyRules';
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 
@@ -24,10 +23,6 @@ export class AgentAuthSDK {
 
     if (!apiResponse.valid) {
       return { allowed: false, error: apiResponse.error ?? 'invalid_api_key' };
-    }
-
-    if (!verifyScope(request.action, apiResponse.scope ?? [])) {
-      return { allowed: false, error: 'action_not_permitted' };
     }
 
     const rulesResult = verifyRules({ apiResponse });

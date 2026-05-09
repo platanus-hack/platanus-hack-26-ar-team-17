@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateApiKeyHash } from '@/lib/services/apiKey.service';
 import { issueToken, verifyToken, isTokenRevoked } from '@/lib/services/token.service';
-import { verifyScope } from '@/lib/services/scope.service';
 import { checkGlobalRules } from '@/lib/services/rules.service';
 import { writeLog } from '@/lib/services/auditLog.service';
 import { checkRateLimit } from '@/lib/rateLimiter';
@@ -38,15 +37,10 @@ export async function POST(req: NextRequest) {
 
   const logBase = { agentId: keyRecord.agent_id, apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, userInput: text };
 
-  const token = await issueToken({ userId: keyRecord.user_id, apiKeyId: keyRecord.id, scope: keyRecord.scope });
+  const token = await issueToken({ userId: keyRecord.user_id, apiKeyId: keyRecord.id });
   const decoded = await verifyToken(token);
   if (await isTokenRevoked(decoded.jti)) {
     return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
-  }
-
-  if (!verifyScope(action, keyRecord.scope)) {
-    await writeLog({ ...logBase, result: 'BLOCKED_SCOPE' });
-    return NextResponse.json({ error: 'action_not_permitted' }, { status: 403 });
   }
 
   const ruleCheck = await checkGlobalRules({ action, text });
@@ -56,5 +50,5 @@ export async function POST(req: NextRequest) {
   }
 
   await writeLog({ ...logBase, result: 'SUCCESS' });
-  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id, agentId: keyRecord.agent_id, scope: keyRecord.scope });
+  return NextResponse.json({ valid: true, token, userId: keyRecord.user_id, agentId: keyRecord.agent_id });
 }

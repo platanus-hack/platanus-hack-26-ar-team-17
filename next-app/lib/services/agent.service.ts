@@ -6,7 +6,6 @@ export interface Agent {
   user_id: string;
   name: string;
   platform: string;
-  scope: string[];
   status: 'ACTIVE' | 'DISABLED';
   created_at: string;
 }
@@ -34,7 +33,6 @@ export async function createAgent(params: {
   userId: string;
   name: string;
   platform: string;
-  scope: string[];
 }): Promise<{ agent: Agent; key: { id: string; plainKey: string; prefix: string } }> {
   const { data: agent, error } = await supabase
     .from('agents')
@@ -42,7 +40,6 @@ export async function createAgent(params: {
       user_id: params.userId,
       name: params.name,
       platform: params.platform,
-      scope: params.scope,
     })
     .select()
     .single<Agent>();

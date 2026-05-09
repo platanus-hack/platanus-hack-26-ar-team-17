@@ -5,7 +5,6 @@ export interface ApiKeyRecord {
   id: string;
   agent_id: string;
   user_id: string;
-  scope: string[];
   status: string;
 }
 
@@ -13,13 +12,13 @@ interface ApiKeyRow {
   id: string;
   agent_id: string;
   status: string;
-  agents: { user_id: string; scope: string[]; status: string } | null;
+  agents: { user_id: string; status: string } | null;
 }
 
 export async function validateApiKeyHash(keyHash: string): Promise<ApiKeyRecord | null> {
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, agent_id, status, agents(user_id, scope, status)')
+    .select('id, agent_id, status, agents(user_id, status)')
     .eq('key_hash', keyHash)
     .single<ApiKeyRow>();
   if (error || !data || !data.agents) return null;
@@ -29,7 +28,6 @@ export async function validateApiKeyHash(keyHash: string): Promise<ApiKeyRecord 
     id: data.id,
     agent_id: data.agent_id,
     user_id: data.agents.user_id,
-    scope: data.agents.scope,
     status: data.status,
   };
 }
