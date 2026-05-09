@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }
   const user = userResult.user;
+  console.log('user', user);
 
   const profile = await getProfileByUserId(user.id);
   if (!profile) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
