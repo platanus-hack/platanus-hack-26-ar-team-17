@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import {
   issueToken,
   issueUserToken,
@@ -5,6 +6,7 @@ import {
   revokeToken,
   isTokenRevoked,
 } from '@/lib/services/token.service';
+import { config } from '@/lib/config';
 
 jest.mock('@/lib/db/supabase', () => ({
   supabase: {
@@ -46,6 +48,15 @@ describe('token.service', () => {
       const token = await issueUserToken('user_1');
       const decoded = await verifyToken(token);
       expect(decoded.type).toBe('user_session');
+    });
+
+    it('embeds a jti in the user_session token', async () => {
+      const token = await issueUserToken('user_42');
+      const decoded = jwt.verify(token, config.JWT_SECRET) as { userId: string; type: string; jti?: string };
+      expect(decoded.userId).toBe('user_42');
+      expect(decoded.type).toBe('user_session');
+      expect(typeof decoded.jti).toBe('string');
+      expect(decoded.jti!.length).toBeGreaterThan(10);
     });
   });
 

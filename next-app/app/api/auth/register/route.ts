@@ -1,37 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
 import { supabase } from '@/lib/db/supabase';
-import { issueUserToken } from '@/lib/services/token.service';
+import { getProfileByUserId, createProfile } from '@/lib/services/profile.service';
+import { createVerificationSession } from '@/lib/services/didit.service';
+import { config } from '@/lib/config';
 
-const bodySchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  full_name: z.string().min(1).max(120).optional(),
-  company: z.string().max(120).optional(),
-});
+const bodySchema = z.object({ supabase_access_token: z.string().min(1) });
 
 export async function POST(req: NextRequest) {
-  const parsed = bodySchema.safeParse(await req.json());
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
+  }
+  const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const { email, password, full_name, company } = parsed.data;
+  const { data: userResult, error } = await supabase.auth.getUser(parsed.data.supabase_access_token);
+  if (error || !userResult?.user) {
+    return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
+  }
+  const user = userResult.user;
+  if (user.app_metadata?.provider !== 'google') {
+    return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
+  }
 
-  const { data: existing } = await supabase.from('users').select('id').eq('email', email).single();
-  if (existing) return NextResponse.json({ error: 'email_taken' }, { status: 409 });
+  if (await getProfileByUserId(user.id)) {
+    return NextResponse.json({ error: 'already_registered' }, { status: 409 });
+  }
 
-  const hashed = await bcrypt.hash(password, 12);
-  const hash = crypto.randomBytes(16).toString('hex');
+  if (!config.DIDIT_KYC_WORKFLOW_ID) {
+    return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
+  }
 
-  const { data: user, error } = await supabase
-    .from('users')
-    .insert({ email, password: hashed, full_name: full_name ?? null, company: company ?? null, hash, kyc_status: 'PENDING' })
-    .select()
-    .single();
+  const session = await createVerificationSession({
+    userId: user.id,
+    workflowId: config.DIDIT_KYC_WORKFLOW_ID,
+    callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
+  });
 
-  if (error || !user) return NextResponse.json({ error: 'registration_failed', detail: error?.message }, { status: 500 });
+  await createProfile({
+    user_id: user.id,
+    email: user.email ?? '',
+    google_sub: (user.user_metadata?.sub as string) ?? null,
+    full_name: (user.user_metadata?.full_name as string) ?? null,
+    picture_url: (user.user_metadata?.avatar_url as string) ?? null,
+    dni: null,
+    didit_kyc_session_id: session.session_id,
+    verification_status: 'PENDING',
+  });
 
-  const token = await issueUserToken(user.id);
-  return NextResponse.json({ token, userId: user.id, kycStatus: user.kyc_status }, { status: 201 });
+  return NextResponse.json(
+    { verification_url: session.url, session_id: session.session_id },
+    { status: 201 },
+  );
 }

@@ -29,6 +29,15 @@ export interface DiditWebhookPayload {
   decision?: Record<string, unknown>;
 }
 
+export interface DiditSessionDetails {
+  session_id: string;
+  status: DiditStatus;
+  workflow_id: string;
+  vendor_data?: string;
+  decision?: Record<string, unknown>;
+  kyc?: { document_number?: string; full_name?: string };
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
@@ -38,9 +47,10 @@ function requireEnv(name: string): string {
 export async function createVerificationSession(params: {
   userId: string;
   callbackUrl: string;
+  workflowId?: string; // override default for biometric flows
 }): Promise<CreateSessionResponse> {
   const apiKey = requireEnv('DIDIT_API_KEY');
-  const workflowId = requireEnv('DIDIT_WORKFLOW_ID');
+  const workflowId = params.workflowId ?? requireEnv('DIDIT_WORKFLOW_ID');
 
   const res = await fetch(`${DIDIT_API_URL}/v3/session/`, {
     method: 'POST',
@@ -61,6 +71,16 @@ export async function createVerificationSession(params: {
   }
 
   return (await res.json()) as CreateSessionResponse;
+}
+
+export async function getSession(sessionId: string): Promise<DiditSessionDetails> {
+  const apiKey = requireEnv('DIDIT_API_KEY');
+  const res = await fetch(`${DIDIT_API_URL}/v3/session/${sessionId}/`, {
+    method: 'GET',
+    headers: { 'x-api-key': apiKey },
+  });
+  if (!res.ok) throw new Error(`Didit getSession failed: ${res.status}`);
+  return (await res.json()) as DiditSessionDetails;
 }
 
 function canonicalJSON(value: unknown): string {

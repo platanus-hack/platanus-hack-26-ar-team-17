@@ -23,7 +23,8 @@ export async function issueToken(payload: TokenPayload): Promise<string> {
 }
 
 export async function issueUserToken(userId: string): Promise<string> {
-  return jwt.sign({ userId, type: 'user_session' }, config.JWT_SECRET, {
+  const jti = crypto.randomUUID();
+  return jwt.sign({ userId, jti, type: 'user_session' }, config.JWT_SECRET, {
     expiresIn: '7d',
   });
 }

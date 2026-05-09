@@ -5,6 +5,12 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('15m'),
+  DIDIT_API_KEY: z.string().min(1).optional(),
+  DIDIT_API_URL: z.string().url().default('https://verification.didit.me'),
+  DIDIT_KYC_WORKFLOW_ID: z.string().min(1).optional(),
+  DIDIT_BIOMETRIC_WORKFLOW_ID: z.string().min(1).optional(),
+  DIDIT_WEBHOOK_SECRET: z.string().min(1).optional(),
+  SITE_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
 
