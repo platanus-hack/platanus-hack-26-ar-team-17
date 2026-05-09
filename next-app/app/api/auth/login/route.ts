@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { revokeToken, verifyToken } from '@/lib/services/token.service';
-import { getProfileByUserId } from '@/lib/services/profile.service';
+import { getProfileByUserId, createProfile } from '@/lib/services/profile.service';
 import { createVerificationSession } from '@/lib/services/didit.service';
 import { createPendingLoginAttempt } from '@/lib/services/loginAttempt.service';
 import { clearSessionCookie, APP_SESSION_COOKIE } from '@/lib/cookies';
@@ -31,14 +31,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
   }
   const user = userResult.user;
-  console.log('user', user);
+  if (user.app_metadata?.provider !== 'google') {
+    return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
+  }
 
   const profile = await getProfileByUserId(user.id);
-  if (!profile) return NextResponse.json({ user, profile }, { status: 404});
+
+  // New user → run KYC (id + face) and bootstrap a profile in PENDING state.
+  if (!profile) {
+    if (!config.DIDIT_KYC_WORKFLOW_ID) {
+      return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
+    }
+    try {
+      const kycSession = await createVerificationSession({
+        userId: user.id,
+        workflowId: config.DIDIT_KYC_WORKFLOW_ID,
+        callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
+      });
+      await createProfile({
+        user_id: user.id,
+        email: user.email ?? '',
+        google_sub: (user.user_metadata?.sub as string) ?? null,
+        full_name: (user.user_metadata?.full_name as string) ?? null,
+        picture_url: (user.user_metadata?.avatar_url as string) ?? null,
+        dni: null,
+        didit_kyc_session_id: kycSession.session_id,
+        verification_status: 'PENDING',
+      });
+      return NextResponse.json(
+        { mode: 'kyc', verification_url: kycSession.url, session_id: kycSession.session_id },
+        { status: 201 },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('duplicate key value')) {
+        return NextResponse.json({ error: 'duplicate' }, { status: 409 });
+      }
+      console.error('login (kyc bootstrap) error:', err);
+      return NextResponse.json({ error: 'internal' }, { status: 500 });
+    }
+  }
+
+  // Existing user, KYC not yet approved.
   if (profile.verification_status !== 'APPROVED') {
     return NextResponse.json({ error: 'verification_pending' }, { status: 409 });
   }
 
+  // Returning approved user → biometric face check only.
   if (!config.DIDIT_BIOMETRIC_WORKFLOW_ID) {
     return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
   }
@@ -52,6 +91,7 @@ export async function POST(req: NextRequest) {
   await createPendingLoginAttempt(session.session_id, user.id);
 
   return NextResponse.json({
+    mode: 'biometric',
     verification_url: session.url,
     session_id: session.session_id,
   });

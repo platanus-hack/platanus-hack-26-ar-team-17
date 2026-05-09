@@ -78,7 +78,7 @@ export default function Home() {
         </p>
 
         <div style={{ display: 'flex', gap: 12 }}>
-          <Link href="/register" style={{
+          <Link href="/login" style={{
             ...mono, fontSize: 13, fontWeight: 500,
             padding: '13px 24px', borderRadius: 8,
             background: '#c8f542', color: '#050505',
