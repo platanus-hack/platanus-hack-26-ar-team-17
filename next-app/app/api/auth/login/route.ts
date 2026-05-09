@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   console.log('user', user);
 
   const profile = await getProfileByUserId(user.id);
-  if (!profile) return NextResponse.json({ error: 'not_registered', user }, { status: 404});
+  if (!profile) return NextResponse.json({ user, profile }, { status: 404});
   if (profile.verification_status !== 'APPROVED') {
     return NextResponse.json({ error: 'verification_pending' }, { status: 409 });
   }
