@@ -36,11 +36,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'invalid_api_key' }, { status: 401 });
   }
 
-  if (!verifyScope(action, keyRecord.scope)) {
-    await writeLog({ apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, result: 'BLOCKED_SCOPE' });
-    return NextResponse.json({ error: 'action_not_permitted' }, { status: 403 });
-  }
-
   const ruleCheck = await checkGlobalRules({ action, text });
   if (ruleCheck.blocked) {
     await writeLog({ apiKeyId: keyRecord.id, userId: keyRecord.user_id, action, platform, result: 'BLOCKED_RULE', ruleViolated: ruleCheck.ruleViolated });

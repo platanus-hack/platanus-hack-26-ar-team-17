@@ -23,7 +23,6 @@ export async function validateApiKeyHash(keyHash: string): Promise<ApiKeyRecord 
 export async function createApiKey(params: {
   userId: string;
   name: string;
-  scope: string[];
 }): Promise<{ id: string; plainKey: string; prefix: string }> {
   const plainKey = generateApiKey();
   const keyHash = hashApiKey(plainKey);
@@ -31,7 +30,7 @@ export async function createApiKey(params: {
 
   const { data, error } = await supabase
     .from('api_keys')
-    .insert({ user_id: params.userId, name: params.name, key_hash: keyHash, prefix, scope: params.scope })
+    .insert({ user_id: params.userId, name: params.name, key_hash: keyHash, prefix, scope: [] })
     .select()
     .single();
 
