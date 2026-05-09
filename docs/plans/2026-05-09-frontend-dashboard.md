@@ -2,599 +2,72 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Construir el dashboard web donde los usuarios se registran, gestionan sus API Keys, visualizan el audit log y ven alertas de acciones bloqueadas. Incluye los endpoints faltantes de la Platform API que el frontend necesita.
+**Goal:** Construir el dashboard web dentro del mismo proyecto Next.js — los usuarios gestionan sus API Keys, visualizan el audit log y ven alertas de acciones bloqueadas.
 
-**Architecture:** Antes del frontend se completan los endpoints faltantes de la Platform API (auth register/login, GET keys, GET audit-log, GET alerts). El dashboard es una SPA en React con rutas protegidas — el JWT `type: user_session` se guarda en localStorage y se envía en cada request. Los tokens SDK no pueden autenticar rutas del dashboard (fix VULN-001 ya aplicado).
+**Architecture:** El dashboard comparte `next-app/` con la Platform API (Plan 1). Las páginas van en `app/(protected)/` para rutas protegidas y `app/login/`, `app/register/` para auth pública. El JWT `type: user_session` se guarda en localStorage y se envía en cada request. Los tokens SDK no pueden autenticar el dashboard (fix VULN-001 ya en Plan 1). Todas las páginas interactivas son Client Components (`'use client'`). Los paths de la API son relativos (`/api/...`) porque el frontend y la API corren en el mismo proceso Next.js.
 
-**Tech Stack:** Platform API (Node.js/Express/Prisma — Plan 1), React 18, TypeScript, Vite, React Router v6, Tailwind CSS, Vitest, @testing-library/react
+**Tech Stack:** Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, Jest + @testing-library/react (misma configuración del Plan 1)
 
-**Prerequisito:** Platform API del Plan 1 corriendo con `DATABASE_URL`, `REDIS_URL` y `JWT_SECRET` configurados.
+**Prerequisito:** Plan 1 completado — `next-app/` inicializado con Prisma, Redis, JWT, Tailwind y API routes en `app/api/`. La config de Jest con `nextJest` ya está en `jest.config.ts`.
 
 ---
 
 ## File Structure
 
-### Adiciones a Platform API (`platform-api/`)
-
 ```
-platform-api/src/
-  routes/
-    auth.ts        # POST /v1/auth/register, POST /v1/auth/login  ← NUEVO
-    auditLog.ts    # GET /v1/audit-log                            ← NUEVO
-    alerts.ts      # GET /v1/alerts                               ← NUEVO
-  (routes/keys.ts ya existente — agregar GET /v1/keys)
-  app.ts           # Registrar nuevas rutas
-tests/routes/
-  auth.test.ts
-  auditLog.test.ts
-```
-
-### Frontend (`dashboard/`)
-
-```
-dashboard/
-  src/
+next-app/
+  app/
+    layout.tsx                          # Root layout — envuelve AuthProvider (Server Component)
+    globals.css                         # @tailwind directives (ya existe del Plan 1)
+    login/
+      page.tsx                          # Login form (Client Component)
+    register/
+      page.tsx                          # Register form (Client Component)
+    (protected)/
+      layout.tsx                        # Nav + auth guard → redirige a /login si no hay token
+      keys/
+        page.tsx                        # Gestión de API Keys
+      audit-log/
+        page.tsx                        # Historial de acciones con filtros y paginación
+      alerts/
+        page.tsx                        # Acciones bloqueadas por regla global
+  components/
+    PlainKeyAlert.tsx                   # Muestra plainKey una sola vez post-creación
+    KeyCard.tsx                         # Prefix, nombre, scope, botón Revoke
+    CreateKeyModal.tsx                  # Form: nombre + checkboxes de scope
+    AuditLogTable.tsx                   # Tabla de entradas del audit log
+    AlertList.tsx                       # Lista de acciones bloqueadas
+  contexts/
+    AuthContext.tsx                     # JWT + userId en localStorage, setAuth/logout
+  lib/
     api/
-      client.ts          # fetch wrapper con base URL + Authorization header
-      auth.ts            # register(), login()
-      keys.ts            # listKeys(), createKey(), revokeKey()
-      auditLog.ts        # listAuditLog(filters)
-      alerts.ts          # listAlerts()
-    contexts/
-      AuthContext.tsx    # JWT + userId en localStorage, setAuth/logout
-    components/
-      PlainKeyAlert.tsx  # Muestra plainKey una sola vez post-creación
-      KeyCard.tsx        # Prefix, nombre, scope, botón Revoke
-      CreateKeyModal.tsx # Form: nombre + checkboxes de scope
-      AuditLogTable.tsx  # Tabla de entradas del audit log
-      AlertList.tsx      # Lista de acciones bloqueadas por regla global
-      Layout.tsx         # Nav + Outlet
-    pages/
-      LoginPage.tsx
-      RegisterPage.tsx
-      KeysPage.tsx
-      AuditLogPage.tsx
-      AlertsPage.tsx
-    App.tsx              # BrowserRouter + rutas protegidas
-    main.tsx
-    index.css
-    test-setup.ts
-  tests/
+      client.ts                         # fetch wrapper con Authorization header
+      auth.ts                           # register(), login()
+      keys.ts                           # listKeys(), createKey(), revokeKey()
+      auditLog.ts                       # listAuditLog(filters)
+      alerts.ts                         # listAlerts()
+  __tests__/
     components/
       PlainKeyAlert.test.tsx
       KeyCard.test.tsx
       CreateKeyModal.test.tsx
-  vite.config.ts
-  tsconfig.json
-  package.json
-  tailwind.config.js
-  postcss.config.js
-  index.html
-  .env.example
+      LoginPage.test.tsx
 ```
 
 ---
 
-## Task 1: Auth endpoints — Platform API
+## Task 1: API client layer
 
 **Files:**
-- Create: `platform-api/src/routes/auth.ts`
-- Create: `platform-api/tests/routes/auth.test.ts`
-- Modify: `platform-api/src/app.ts`
+- Create: `next-app/lib/api/client.ts`
+- Create: `next-app/lib/api/auth.ts`
+- Create: `next-app/lib/api/keys.ts`
+- Create: `next-app/lib/api/auditLog.ts`
+- Create: `next-app/lib/api/alerts.ts`
 
-- [ ] **Step 1: Escribir el test**
-
-```typescript
-// tests/routes/auth.test.ts
-import request from 'supertest';
-import app from '../../src/app';
-
-jest.mock('../../src/db/prisma', () => ({
-  prisma: {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-    },
-  },
-}));
-
-const { prisma } = require('../../src/db/prisma');
-
-describe('Auth routes', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  describe('POST /v1/auth/register', () => {
-    it('creates a user and returns a user_session token', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-      prisma.user.create.mockResolvedValue({ id: 'user_1', email: 'a@b.com' });
-
-      const res = await request(app)
-        .post('/v1/auth/register')
-        .send({ email: 'a@b.com', password: 'password123' });
-
-      expect(res.status).toBe(201);
-      expect(res.body.token).toBeDefined();
-      expect(res.body.userId).toBe('user_1');
-    });
-
-    it('returns 409 if email already exists', async () => {
-      prisma.user.findUnique.mockResolvedValue({ id: 'user_1' });
-
-      const res = await request(app)
-        .post('/v1/auth/register')
-        .send({ email: 'a@b.com', password: 'password123' });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error).toBe('email_taken');
-    });
-
-    it('returns 400 for invalid email', async () => {
-      const res = await request(app)
-        .post('/v1/auth/register')
-        .send({ email: 'notanemail', password: 'password123' });
-      expect(res.status).toBe(400);
-    });
-  });
-
-  describe('POST /v1/auth/login', () => {
-    it('returns a token for valid credentials', async () => {
-      const bcrypt = require('bcryptjs');
-      const hashed = await bcrypt.hash('password123', 1);
-      prisma.user.findUnique.mockResolvedValue({ id: 'user_1', email: 'a@b.com', password: hashed });
-
-      const res = await request(app)
-        .post('/v1/auth/login')
-        .send({ email: 'a@b.com', password: 'password123' });
-
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
-    });
-
-    it('returns 401 for wrong password', async () => {
-      const bcrypt = require('bcryptjs');
-      const hashed = await bcrypt.hash('correct', 1);
-      prisma.user.findUnique.mockResolvedValue({ id: 'user_1', password: hashed });
-
-      const res = await request(app)
-        .post('/v1/auth/login')
-        .send({ email: 'a@b.com', password: 'wrong' });
-
-      expect(res.status).toBe(401);
-    });
-
-    it('returns 401 for unknown email', async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-
-      const res = await request(app)
-        .post('/v1/auth/login')
-        .send({ email: 'unknown@b.com', password: 'password123' });
-
-      expect(res.status).toBe(401);
-    });
-  });
-});
-```
-
-- [ ] **Step 2: Verificar que falla**
-
-```bash
-npx jest tests/routes/auth.test.ts
-```
-
-Expected: FAIL — Cannot find module
-
-- [ ] **Step 3: Crear src/routes/auth.ts**
+- [ ] **Step 1: Crear lib/api/client.ts**
 
 ```typescript
-import { Router, Request, Response } from 'express';
-import { z } from 'zod';
-import bcrypt from 'bcryptjs';
-import { prisma } from '../db/prisma';
-import { issueUserToken } from '../services/token.service';
-
-const router = Router();
-
-const registerBody = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-
-const loginBody = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-router.post('/register', async (req: Request, res: Response) => {
-  const parsed = registerBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_request' });
-    return;
-  }
-
-  const { email, password } = parsed.data;
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    res.status(409).json({ error: 'email_taken' });
-    return;
-  }
-
-  const hashed = await bcrypt.hash(password, 12);
-  const user = await prisma.user.create({ data: { email, password: hashed } });
-  const token = await issueUserToken(user.id);
-  res.status(201).json({ token, userId: user.id });
-});
-
-router.post('/login', async (req: Request, res: Response) => {
-  const parsed = loginBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_request' });
-    return;
-  }
-
-  const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    res.status(401).json({ error: 'invalid_credentials' });
-    return;
-  }
-
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) {
-    res.status(401).json({ error: 'invalid_credentials' });
-    return;
-  }
-
-  const token = await issueUserToken(user.id);
-  res.status(200).json({ token, userId: user.id });
-});
-
-export default router;
-```
-
-- [ ] **Step 4: Actualizar src/app.ts**
-
-```typescript
-import express from 'express';
-import validateRouter from './routes/validate';
-import keysRouter from './routes/keys';
-import authRouter from './routes/auth';
-import auditLogRouter from './routes/auditLog';
-import alertsRouter from './routes/alerts';
-
-const app = express();
-app.use(express.json());
-
-app.use('/v1/auth', authRouter);
-app.use('/v1/validate', validateRouter);
-app.use('/v1/keys', keysRouter);
-app.use('/v1/audit-log', auditLogRouter);
-app.use('/v1/alerts', alertsRouter);
-
-export default app;
-```
-
-- [ ] **Step 5: Verificar que pasa**
-
-```bash
-npx jest tests/routes/auth.test.ts
-```
-
-Expected: PASS — 5 tests
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/routes/auth.ts src/app.ts tests/routes/auth.test.ts
-git commit -m "feat: add auth register and login endpoints"
-```
-
----
-
-## Task 2: GET /v1/keys + /v1/audit-log + /v1/alerts — Platform API
-
-**Files:**
-- Modify: `platform-api/src/routes/keys.ts`
-- Create: `platform-api/src/routes/auditLog.ts`
-- Create: `platform-api/src/routes/alerts.ts`
-- Create: `platform-api/tests/routes/auditLog.test.ts`
-
-- [ ] **Step 1: Escribir los tests**
-
-```typescript
-// tests/routes/auditLog.test.ts
-import request from 'supertest';
-import app from '../../src/app';
-import jwt from 'jsonwebtoken';
-
-jest.mock('../../src/db/prisma', () => ({
-  prisma: { auditLog: { findMany: jest.fn() } },
-}));
-
-const { prisma } = require('../../src/db/prisma');
-
-const validUserToken = jwt.sign(
-  { userId: 'user_1', type: 'user_session' },
-  process.env.JWT_SECRET ?? 'test-secret-at-least-32-characters-long',
-  { expiresIn: '1h' }
-);
-
-describe('GET /v1/audit-log', () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  it('returns audit logs for the authenticated user', async () => {
-    prisma.auditLog.findMany.mockResolvedValue([
-      { id: 'log_1', action: 'send_message', result: 'SUCCESS', createdAt: new Date().toISOString() },
-    ]);
-
-    const res = await request(app)
-      .get('/v1/audit-log')
-      .set('Authorization', `Bearer ${validUserToken}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.length).toBe(1);
-  });
-
-  it('returns 401 without token', async () => {
-    const res = await request(app).get('/v1/audit-log');
-    expect(res.status).toBe(401);
-  });
-});
-
-describe('GET /v1/alerts', () => {
-  it('returns only BLOCKED_RULE logs', async () => {
-    prisma.auditLog.findMany.mockResolvedValue([
-      { id: 'log_2', action: 'mass_send', result: 'BLOCKED_RULE', ruleViolated: 'mass_send' },
-    ]);
-
-    const res = await request(app)
-      .get('/v1/alerts')
-      .set('Authorization', `Bearer ${validUserToken}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body[0].result).toBe('BLOCKED_RULE');
-  });
-});
-```
-
-- [ ] **Step 2: Verificar que fallan**
-
-```bash
-npx jest tests/routes/auditLog.test.ts
-```
-
-Expected: FAIL
-
-- [ ] **Step 3: Crear src/routes/auditLog.ts**
-
-```typescript
-import { Router, Response } from 'express';
-import { z } from 'zod';
-import { requireAuth, AuthRequest } from '../middleware/auth';
-import { prisma } from '../db/prisma';
-
-const router = Router();
-
-const logQuerySchema = z.object({
-  keyId: z.string().optional(),
-  platform: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
-  result: z
-    .enum(['SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED'])
-    .optional(),
-  page: z.coerce.number().min(1).default(1),
-});
-
-const PAGE_SIZE = 50;
-
-router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
-  const parsed = logQuerySchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_request' });
-    return;
-  }
-
-  const { keyId, platform, from, to, result, page } = parsed.data;
-
-  const logs = await prisma.auditLog.findMany({
-    where: {
-      userId: req.userId!,
-      ...(keyId && { apiKeyId: keyId }),
-      ...(platform && { platform }),
-      ...(result && { result }),
-      ...((from || to) && {
-        createdAt: {
-          ...(from && { gte: new Date(from) }),
-          ...(to && { lte: new Date(to) }),
-        },
-      }),
-    },
-    orderBy: { createdAt: 'desc' },
-    take: PAGE_SIZE,
-    skip: (page - 1) * PAGE_SIZE,
-  });
-
-  res.status(200).json(logs);
-});
-
-export default router;
-```
-
-- [ ] **Step 4: Crear src/routes/alerts.ts**
-
-```typescript
-import { Router, Response } from 'express';
-import { requireAuth, AuthRequest } from '../middleware/auth';
-import { prisma } from '../db/prisma';
-
-const router = Router();
-
-router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
-  const alerts = await prisma.auditLog.findMany({
-    where: { userId: req.userId!, result: 'BLOCKED_RULE' },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
-  res.status(200).json(alerts);
-});
-
-export default router;
-```
-
-- [ ] **Step 5: Agregar GET / a src/routes/keys.ts**
-
-Agregar antes del `router.post('/', ...)` existente:
-
-```typescript
-router.get('/', requireAuth, async (req: AuthRequest, res: Response) => {
-  const keys = await prisma.apiKey.findMany({
-    where: { userId: req.userId! },
-    select: {
-      id: true,
-      name: true,
-      prefix: true,
-      scope: true,
-      status: true,
-      createdAt: true,
-      revokedAt: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  res.status(200).json(keys);
-});
-```
-
-También agregar el import de `prisma` al principio del archivo si no está:
-
-```typescript
-import { prisma } from '../db/prisma';
-```
-
-- [ ] **Step 6: Verificar que pasan**
-
-```bash
-npx jest tests/routes/auditLog.test.ts
-```
-
-Expected: PASS — 3 tests
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add src/routes/auditLog.ts src/routes/alerts.ts src/routes/keys.ts src/app.ts tests/routes/auditLog.test.ts
-git commit -m "feat: add GET /v1/keys, /v1/audit-log, /v1/alerts endpoints"
-```
-
----
-
-## Task 3: Inicializar proyecto dashboard
-
-**Files:**
-- Create: `dashboard/package.json`, `dashboard/vite.config.ts`, `dashboard/tsconfig.json`
-- Create: `dashboard/index.html`, `dashboard/tailwind.config.js`, `dashboard/postcss.config.js`
-- Create: `dashboard/src/index.css`, `dashboard/src/test-setup.ts`, `dashboard/.env.example`
-
-- [ ] **Step 1: Crear proyecto con Vite**
-
-```bash
-npm create vite@latest dashboard -- --template react-ts
-cd dashboard
-```
-
-- [ ] **Step 2: Instalar dependencias**
-
-```bash
-npm install react-router-dom
-npm install -D tailwindcss postcss autoprefixer @testing-library/react @testing-library/jest-dom @testing-library/user-event vitest jsdom @vitejs/plugin-react
-npx tailwindcss init -p
-```
-
-- [ ] **Step 3: Configurar tailwind.config.js**
-
-```javascript
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
-  theme: { extend: {} },
-  plugins: [],
-};
-```
-
-- [ ] **Step 4: Crear src/index.css**
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-```
-
-- [ ] **Step 5: Reemplazar vite.config.ts**
-
-```typescript
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: './src/test-setup.ts',
-  },
-});
-```
-
-- [ ] **Step 6: Crear src/test-setup.ts**
-
-```typescript
-import '@testing-library/jest-dom';
-```
-
-- [ ] **Step 7: Crear .env.example**
-
-```env
-VITE_API_URL=http://localhost:3000
-```
-
-- [ ] **Step 8: Agregar scripts a package.json**
-
-Reemplazar la sección `"scripts"` generada por Vite con:
-
-```json
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "test": "vitest run",
-    "test:watch": "vitest"
-  }
-}
-```
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add .
-git commit -m "feat: initialize dashboard project with Vite + React + TypeScript + Tailwind"
-```
-
----
-
-## Task 4: API client + AuthContext
-
-**Files:**
-- Create: `dashboard/src/api/client.ts`
-- Create: `dashboard/src/api/auth.ts`
-- Create: `dashboard/src/api/keys.ts`
-- Create: `dashboard/src/api/auditLog.ts`
-- Create: `dashboard/src/api/alerts.ts`
-- Create: `dashboard/src/contexts/AuthContext.tsx`
-
-- [ ] **Step 1: Crear src/api/client.ts**
-
-```typescript
-const API_URL = import.meta.env.VITE_API_URL as string;
-
 type RequestOptions = {
   method?: string;
   body?: unknown;
@@ -605,7 +78,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(path, {
     method: options.method ?? 'GET',
     headers,
     ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
@@ -617,7 +90,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 }
 ```
 
-- [ ] **Step 2: Crear src/api/auth.ts**
+- [ ] **Step 2: Crear lib/api/auth.ts**
 
 ```typescript
 import { apiFetch } from './client';
@@ -628,15 +101,15 @@ export interface AuthResponse {
 }
 
 export function register(email: string, password: string): Promise<AuthResponse> {
-  return apiFetch('/v1/auth/register', { method: 'POST', body: { email, password } });
+  return apiFetch('/api/auth/register', { method: 'POST', body: { email, password } });
 }
 
 export function login(email: string, password: string): Promise<AuthResponse> {
-  return apiFetch('/v1/auth/login', { method: 'POST', body: { email, password } });
+  return apiFetch('/api/auth/login', { method: 'POST', body: { email, password } });
 }
 ```
 
-- [ ] **Step 3: Crear src/api/keys.ts**
+- [ ] **Step 3: Crear lib/api/keys.ts**
 
 ```typescript
 import { apiFetch } from './client';
@@ -658,22 +131,22 @@ export interface CreateKeyResponse {
 }
 
 export function listKeys(token: string): Promise<ApiKeyRecord[]> {
-  return apiFetch('/v1/keys', { token });
+  return apiFetch('/api/keys', { token });
 }
 
 export function createKey(
   token: string,
   params: { name: string; scope: string[] }
 ): Promise<CreateKeyResponse> {
-  return apiFetch('/v1/keys', { method: 'POST', body: params, token });
+  return apiFetch('/api/keys', { method: 'POST', body: params, token });
 }
 
 export function revokeKey(token: string, keyId: string): Promise<{ success: boolean }> {
-  return apiFetch(`/v1/keys/${keyId}`, { method: 'DELETE', token });
+  return apiFetch(`/api/keys/${keyId}`, { method: 'DELETE', token });
 }
 ```
 
-- [ ] **Step 4: Crear src/api/auditLog.ts**
+- [ ] **Step 4: Crear lib/api/auditLog.ts**
 
 ```typescript
 import { apiFetch } from './client';
@@ -703,24 +176,39 @@ export function listAuditLog(token: string, filters: AuditLogFilters = {}): Prom
     if (v !== undefined && v !== '') params.set(k, String(v));
   });
   const qs = params.toString();
-  return apiFetch(`/v1/audit-log${qs ? `?${qs}` : ''}`, { token });
+  return apiFetch(`/api/audit-log${qs ? `?${qs}` : ''}`, { token });
 }
 ```
 
-- [ ] **Step 5: Crear src/api/alerts.ts**
+- [ ] **Step 5: Crear lib/api/alerts.ts**
 
 ```typescript
 import { apiFetch } from './client';
 import type { AuditLogEntry } from './auditLog';
 
 export function listAlerts(token: string): Promise<AuditLogEntry[]> {
-  return apiFetch('/v1/alerts', { token });
+  return apiFetch('/api/alerts', { token });
 }
 ```
 
-- [ ] **Step 6: Crear src/contexts/AuthContext.tsx**
+- [ ] **Step 6: Commit**
+
+```bash
+git add lib/api/
+git commit -m "feat: add frontend api client layer"
+```
+
+---
+
+## Task 2: AuthContext
+
+**Files:**
+- Create: `next-app/contexts/AuthContext.tsx`
+
+- [ ] **Step 1: Crear contexts/AuthContext.tsx**
 
 ```typescript
+'use client';
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface AuthState {
@@ -774,48 +262,48 @@ export function useAuth(): AuthContextValue {
 }
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add src/api/ src/contexts/
-git commit -m "feat: add api client layer and auth context"
+git add contexts/AuthContext.tsx
+git commit -m "feat: add auth context with localStorage persistence"
 ```
 
 ---
 
-## Task 5: Login + Register + routing
+## Task 3: Root layout + Login + Register pages
 
 **Files:**
-- Create: `dashboard/src/pages/LoginPage.tsx`
-- Create: `dashboard/src/pages/RegisterPage.tsx`
-- Create: `dashboard/src/components/Layout.tsx`
-- Create: `dashboard/src/App.tsx`
-- Create: `dashboard/src/main.tsx`
-- Create: `dashboard/tests/components/LoginPage.test.tsx`
+- Modify: `next-app/app/layout.tsx`
+- Create: `next-app/app/login/page.tsx`
+- Create: `next-app/app/register/page.tsx`
+- Create: `next-app/__tests__/components/LoginPage.test.tsx`
 
 - [ ] **Step 1: Escribir el test**
 
 ```typescript
-// tests/components/LoginPage.test.tsx
+// __tests__/components/LoginPage.test.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { AuthProvider } from '../../src/contexts/AuthContext';
-import LoginPage from '../../src/pages/LoginPage';
-import * as authApi from '../../src/api/auth';
+import LoginPage from '@/app/login/page';
+import * as authApi from '@/lib/api/auth';
+import { AuthProvider } from '@/contexts/AuthContext';
 
-vi.mock('../../src/api/auth');
+jest.mock('@/lib/api/auth');
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+}));
 
 function renderLogin() {
   return render(
-    <MemoryRouter>
-      <AuthProvider>
-        <LoginPage />
-      </AuthProvider>
-    </MemoryRouter>
+    <AuthProvider>
+      <LoginPage />
+    </AuthProvider>
   );
 }
 
 describe('LoginPage', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('renders email and password inputs', () => {
     renderLogin();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
@@ -823,18 +311,18 @@ describe('LoginPage', () => {
   });
 
   it('calls login API on submit', async () => {
-    vi.mocked(authApi.login).mockResolvedValue({ token: 'tok', userId: 'u1' });
+    jest.mocked(authApi.login).mockResolvedValue({ token: 'tok', userId: 'u1' });
     renderLogin();
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pass123' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'pass1234' } });
     fireEvent.click(screen.getByRole('button', { name: /login/i }));
     await waitFor(() => {
-      expect(authApi.login).toHaveBeenCalledWith('a@b.com', 'pass123');
+      expect(authApi.login).toHaveBeenCalledWith('a@b.com', 'pass1234');
     });
   });
 
   it('shows error on failed login', async () => {
-    vi.mocked(authApi.login).mockRejectedValue(new Error('invalid_credentials'));
+    jest.mocked(authApi.login).mockRejectedValue(new Error('invalid_credentials'));
     renderLogin();
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrong' } });
@@ -849,22 +337,45 @@ describe('LoginPage', () => {
 - [ ] **Step 2: Verificar que falla**
 
 ```bash
-npx vitest run tests/components/LoginPage.test.tsx
+cd next-app
+npx jest __tests__/components/LoginPage.test.tsx
 ```
 
-Expected: FAIL
+Expected: FAIL — Cannot find module `@/app/login/page`
 
-- [ ] **Step 3: Crear src/pages/LoginPage.tsx**
+- [ ] **Step 3: Actualizar app/layout.tsx**
 
 ```typescript
+import type { Metadata } from 'next';
+import { AuthProvider } from '@/contexts/AuthContext';
+import './globals.css';
+
+export const metadata: Metadata = { title: 'Agent Auth Dashboard' };
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+- [ ] **Step 4: Crear app/login/page.tsx**
+
+```typescript
+'use client';
 import { useState, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { login } from '../api/auth';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { login } from '@/lib/api/auth';
 
 export default function LoginPage() {
   const { setAuth } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -875,7 +386,7 @@ export default function LoginPage() {
     try {
       const { token, userId } = await login(email, password);
       setAuth(token, userId);
-      navigate('/keys');
+      router.replace('/keys');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -912,7 +423,7 @@ export default function LoginPage() {
           Login
         </button>
         <p className="text-sm text-center">
-          No account? <Link to="/register" className="text-blue-600 underline">Register</Link>
+          No account? <Link href="/register" className="text-blue-600 underline">Register</Link>
         </p>
       </form>
     </div>
@@ -920,17 +431,19 @@ export default function LoginPage() {
 }
 ```
 
-- [ ] **Step 4: Crear src/pages/RegisterPage.tsx**
+- [ ] **Step 5: Crear app/register/page.tsx**
 
 ```typescript
+'use client';
 import { useState, FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { register } from '../api/auth';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { register } from '@/lib/api/auth';
 
 export default function RegisterPage() {
   const { setAuth } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -941,7 +454,7 @@ export default function RegisterPage() {
     try {
       const { token, userId } = await register(email, password);
       setAuth(token, userId);
-      navigate('/keys');
+      router.replace('/keys');
     } catch (err) {
       setError((err as Error).message);
     }
@@ -964,7 +477,9 @@ export default function RegisterPage() {
           />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium">Password (min 8 chars)</label>
+          <label htmlFor="password" className="block text-sm font-medium">
+            Password (min 8 chars)
+          </label>
           <input
             id="password"
             type="password"
@@ -979,7 +494,7 @@ export default function RegisterPage() {
           Register
         </button>
         <p className="text-sm text-center">
-          Already have an account? <Link to="/login" className="text-blue-600 underline">Login</Link>
+          Already have an account? <Link href="/login" className="text-blue-600 underline">Login</Link>
         </p>
       </form>
     </div>
@@ -987,134 +502,113 @@ export default function RegisterPage() {
 }
 ```
 
-- [ ] **Step 5: Crear src/components/Layout.tsx**
+- [ ] **Step 6: Verificar que el test pasa**
+
+```bash
+npx jest __tests__/components/LoginPage.test.tsx
+```
+
+Expected: PASS — 3 tests
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/layout.tsx app/login/ app/register/ contexts/ __tests__/components/LoginPage.test.tsx
+git commit -m "feat: add root layout, login and register pages"
+```
+
+---
+
+## Task 4: Protected layout
+
+**Files:**
+- Create: `next-app/app/(protected)/layout.tsx`
+
+- [ ] **Step 1: Crear app/(protected)/layout.tsx**
 
 ```typescript
-import { Link, Outlet, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function Layout() {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
+export default function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const { token, logout } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (token === null) router.replace('/login');
+  }, [token, router]);
+
+  if (!token) return null;
 
   function handleLogout() {
     logout();
-    navigate('/login');
+    router.replace('/login');
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-3 flex items-center justify-between">
         <div className="flex gap-6">
-          <Link to="/keys" className="font-medium hover:text-blue-600">API Keys</Link>
-          <Link to="/audit-log" className="font-medium hover:text-blue-600">Audit Log</Link>
-          <Link to="/alerts" className="font-medium hover:text-blue-600">Alerts</Link>
+          <Link href="/keys" className="font-medium hover:text-blue-600">
+            API Keys
+          </Link>
+          <Link href="/audit-log" className="font-medium hover:text-blue-600">
+            Audit Log
+          </Link>
+          <Link href="/alerts" className="font-medium hover:text-blue-600">
+            Alerts
+          </Link>
         </div>
-        <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-600">
+        <button
+          onClick={handleLogout}
+          className="text-sm text-gray-500 hover:text-red-600"
+        >
           Logout
         </button>
       </nav>
-      <main className="max-w-5xl mx-auto px-6 py-8">
-        <Outlet />
-      </main>
+      <main className="max-w-5xl mx-auto px-6 py-8">{children}</main>
     </div>
   );
 }
 ```
 
-- [ ] **Step 6: Crear src/App.tsx**
-
-```typescript
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import KeysPage from './pages/KeysPage';
-import AuditLogPage from './pages/AuditLogPage';
-import AlertsPage from './pages/AlertsPage';
-import Layout from './components/Layout';
-import { ReactNode } from 'react';
-
-function PrivateRoute({ children }: { children: ReactNode }) {
-  const { token } = useAuth();
-  return token ? <>{children}</> : <Navigate to="/login" replace />;
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route
-            element={
-              <PrivateRoute>
-                <Layout />
-              </PrivateRoute>
-            }
-          >
-            <Route path="/keys" element={<KeysPage />} />
-            <Route path="/audit-log" element={<AuditLogPage />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/keys" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-  );
-}
-```
-
-- [ ] **Step 7: Crear src/main.tsx**
-
-```typescript
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
-import './index.css';
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
-```
-
-- [ ] **Step 8: Verificar tests**
+- [ ] **Step 2: Verificar que el archivo existe**
 
 ```bash
-npx vitest run tests/components/LoginPage.test.tsx
+ls app/\(protected\)/layout.tsx
 ```
 
-Expected: PASS — 3 tests
+Expected: file exists
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add src/pages/ src/components/Layout.tsx src/App.tsx src/main.tsx tests/components/LoginPage.test.tsx
-git commit -m "feat: add login, register pages and app routing"
+git add "app/(protected)/layout.tsx"
+git commit -m "feat: add protected layout with nav and auth guard"
 ```
 
 ---
 
-## Task 6: API Keys page
+## Task 5: Keys page + components
 
 **Files:**
-- Create: `dashboard/src/components/PlainKeyAlert.tsx`
-- Create: `dashboard/src/components/KeyCard.tsx`
-- Create: `dashboard/src/components/CreateKeyModal.tsx`
-- Create: `dashboard/src/pages/KeysPage.tsx`
-- Create: `dashboard/tests/components/PlainKeyAlert.test.tsx`
-- Create: `dashboard/tests/components/KeyCard.test.tsx`
-- Create: `dashboard/tests/components/CreateKeyModal.test.tsx`
+- Create: `next-app/components/PlainKeyAlert.tsx`
+- Create: `next-app/components/KeyCard.tsx`
+- Create: `next-app/components/CreateKeyModal.tsx`
+- Create: `next-app/app/(protected)/keys/page.tsx`
+- Create: `next-app/__tests__/components/PlainKeyAlert.test.tsx`
+- Create: `next-app/__tests__/components/KeyCard.test.tsx`
+- Create: `next-app/__tests__/components/CreateKeyModal.test.tsx`
 
 - [ ] **Step 1: Escribir los tests**
 
 ```typescript
-// tests/components/PlainKeyAlert.test.tsx
+// __tests__/components/PlainKeyAlert.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react';
-import PlainKeyAlert from '../../src/components/PlainKeyAlert';
+import PlainKeyAlert from '@/components/PlainKeyAlert';
 
 describe('PlainKeyAlert', () => {
   it('displays the plain key', () => {
@@ -1123,7 +617,7 @@ describe('PlainKeyAlert', () => {
   });
 
   it('calls onDismiss when button clicked', () => {
-    const onDismiss = vi.fn();
+    const onDismiss = jest.fn();
     render(<PlainKeyAlert plainKey="ak_abc123xyz" onDismiss={onDismiss} />);
     fireEvent.click(screen.getByRole('button', { name: /i saved it/i }));
     expect(onDismiss).toHaveBeenCalled();
@@ -1132,10 +626,10 @@ describe('PlainKeyAlert', () => {
 ```
 
 ```typescript
-// tests/components/KeyCard.test.tsx
+// __tests__/components/KeyCard.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react';
-import KeyCard from '../../src/components/KeyCard';
-import type { ApiKeyRecord } from '../../src/api/keys';
+import KeyCard from '@/components/KeyCard';
+import type { ApiKeyRecord } from '@/lib/api/keys';
 
 const mockKey: ApiKeyRecord = {
   id: 'key_1',
@@ -1161,7 +655,7 @@ describe('KeyCard', () => {
   });
 
   it('calls onRevoke when revoke button clicked', () => {
-    const onRevoke = vi.fn();
+    const onRevoke = jest.fn();
     render(<KeyCard apiKey={mockKey} onRevoke={onRevoke} />);
     fireEvent.click(screen.getByRole('button', { name: /revoke/i }));
     expect(onRevoke).toHaveBeenCalledWith('key_1');
@@ -1175,13 +669,13 @@ describe('KeyCard', () => {
 ```
 
 ```typescript
-// tests/components/CreateKeyModal.test.tsx
+// __tests__/components/CreateKeyModal.test.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import CreateKeyModal from '../../src/components/CreateKeyModal';
+import CreateKeyModal from '@/components/CreateKeyModal';
 
 describe('CreateKeyModal', () => {
   it('calls onCreate with name and selected scopes', async () => {
-    const onCreate = vi.fn().mockResolvedValue(undefined);
+    const onCreate = jest.fn().mockResolvedValue(undefined);
     render(<CreateKeyModal onClose={() => {}} onCreate={onCreate} />);
 
     fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test Agent' } });
@@ -1194,7 +688,7 @@ describe('CreateKeyModal', () => {
   });
 
   it('shows error when no scope selected', async () => {
-    render(<CreateKeyModal onClose={() => {}} onCreate={vi.fn()} />);
+    render(<CreateKeyModal onClose={() => {}} onCreate={jest.fn()} />);
     fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test' } });
     fireEvent.click(screen.getByRole('button', { name: /create/i }));
 
@@ -1208,12 +702,12 @@ describe('CreateKeyModal', () => {
 - [ ] **Step 2: Verificar que fallan**
 
 ```bash
-npx vitest run tests/components/
+npx jest __tests__/components/PlainKeyAlert.test.tsx __tests__/components/KeyCard.test.tsx __tests__/components/CreateKeyModal.test.tsx
 ```
 
 Expected: FAIL — cannot find modules
 
-- [ ] **Step 3: Crear src/components/PlainKeyAlert.tsx**
+- [ ] **Step 3: Crear components/PlainKeyAlert.tsx**
 
 ```typescript
 interface PlainKeyAlertProps {
@@ -1241,10 +735,10 @@ export default function PlainKeyAlert({ plainKey, onDismiss }: PlainKeyAlertProp
 }
 ```
 
-- [ ] **Step 4: Crear src/components/KeyCard.tsx**
+- [ ] **Step 4: Crear components/KeyCard.tsx**
 
 ```typescript
-import type { ApiKeyRecord } from '../api/keys';
+import type { ApiKeyRecord } from '@/lib/api/keys';
 
 interface KeyCardProps {
   apiKey: ApiKeyRecord;
@@ -1291,9 +785,10 @@ export default function KeyCard({ apiKey, onRevoke }: KeyCardProps) {
 }
 ```
 
-- [ ] **Step 5: Crear src/components/CreateKeyModal.tsx**
+- [ ] **Step 5: Crear components/CreateKeyModal.tsx**
 
 ```typescript
+'use client';
 import { useState, FormEvent } from 'react';
 
 const AVAILABLE_SCOPES = [
@@ -1346,7 +841,9 @@ export default function CreateKeyModal({ onClose, onCreate }: CreateKeyModalProp
         <h2 className="text-lg font-bold mb-4">Create API Key</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="key-name" className="block text-sm font-medium">Name</label>
+            <label htmlFor="key-name" className="block text-sm font-medium">
+              Name
+            </label>
             <input
               id="key-name"
               value={name}
@@ -1391,15 +888,17 @@ export default function CreateKeyModal({ onClose, onCreate }: CreateKeyModalProp
 }
 ```
 
-- [ ] **Step 6: Crear src/pages/KeysPage.tsx**
+- [ ] **Step 6: Crear app/(protected)/keys/page.tsx**
 
 ```typescript
+'use client';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { listKeys, createKey, revokeKey, ApiKeyRecord, CreateKeyResponse } from '../api/keys';
-import KeyCard from '../components/KeyCard';
-import CreateKeyModal from '../components/CreateKeyModal';
-import PlainKeyAlert from '../components/PlainKeyAlert';
+import { useAuth } from '@/contexts/AuthContext';
+import { listKeys, createKey, revokeKey } from '@/lib/api/keys';
+import type { ApiKeyRecord, CreateKeyResponse } from '@/lib/api/keys';
+import KeyCard from '@/components/KeyCard';
+import CreateKeyModal from '@/components/CreateKeyModal';
+import PlainKeyAlert from '@/components/PlainKeyAlert';
 
 export default function KeysPage() {
   const { token } = useAuth();
@@ -1448,45 +947,40 @@ export default function KeysPage() {
       </div>
 
       {showModal && (
-        <CreateKeyModal
-          onClose={() => setShowModal(false)}
-          onCreate={handleCreate}
-        />
+        <CreateKeyModal onClose={() => setShowModal(false)} onCreate={handleCreate} />
       )}
     </div>
   );
 }
 ```
 
-- [ ] **Step 7: Verificar tests**
+- [ ] **Step 7: Verificar que los tests pasan**
 
 ```bash
-npx vitest run tests/components/
+npx jest __tests__/components/PlainKeyAlert.test.tsx __tests__/components/KeyCard.test.tsx __tests__/components/CreateKeyModal.test.tsx
 ```
 
-Expected: PASS — todos los tests de components
+Expected: PASS — 7 tests
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/components/PlainKeyAlert.tsx src/components/KeyCard.tsx src/components/CreateKeyModal.tsx src/pages/KeysPage.tsx tests/components/
-git commit -m "feat: add api keys page with create, list, revoke and plain key reveal"
+git add components/PlainKeyAlert.tsx components/KeyCard.tsx components/CreateKeyModal.tsx "app/(protected)/keys/" __tests__/components/PlainKeyAlert.test.tsx __tests__/components/KeyCard.test.tsx __tests__/components/CreateKeyModal.test.tsx
+git commit -m "feat: add keys page with create, list, revoke and plain key reveal"
 ```
 
 ---
 
-## Task 7: Audit Log + Alerts pages
+## Task 6: Audit Log page + AuditLogTable component
 
 **Files:**
-- Create: `dashboard/src/components/AuditLogTable.tsx`
-- Create: `dashboard/src/components/AlertList.tsx`
-- Create: `dashboard/src/pages/AuditLogPage.tsx`
-- Create: `dashboard/src/pages/AlertsPage.tsx`
+- Create: `next-app/components/AuditLogTable.tsx`
+- Create: `next-app/app/(protected)/audit-log/page.tsx`
 
-- [ ] **Step 1: Crear src/components/AuditLogTable.tsx**
+- [ ] **Step 1: Crear components/AuditLogTable.tsx**
 
 ```typescript
-import type { AuditLogEntry } from '../api/auditLog';
+import type { AuditLogEntry } from '@/lib/api/auditLog';
 
 interface AuditLogTableProps {
   entries: AuditLogEntry[];
@@ -1538,13 +1032,15 @@ export default function AuditLogTable({ entries }: AuditLogTableProps) {
 }
 ```
 
-- [ ] **Step 2: Crear src/pages/AuditLogPage.tsx**
+- [ ] **Step 2: Crear app/(protected)/audit-log/page.tsx**
 
 ```typescript
+'use client';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { listAuditLog, AuditLogEntry, AuditLogFilters } from '../api/auditLog';
-import AuditLogTable from '../components/AuditLogTable';
+import { useAuth } from '@/contexts/AuthContext';
+import { listAuditLog } from '@/lib/api/auditLog';
+import type { AuditLogEntry, AuditLogFilters } from '@/lib/api/auditLog';
+import AuditLogTable from '@/components/AuditLogTable';
 
 const RESULTS = ['', 'SUCCESS', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_INVALID_KEY', 'BLOCKED_REVOKED'];
 
@@ -1619,10 +1115,33 @@ export default function AuditLogPage() {
 }
 ```
 
-- [ ] **Step 3: Crear src/components/AlertList.tsx**
+- [ ] **Step 3: Verificar que todos los tests siguen pasando**
+
+```bash
+npx jest __tests__/
+```
+
+Expected: PASS — todos los tests anteriores
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add components/AuditLogTable.tsx "app/(protected)/audit-log/"
+git commit -m "feat: add audit log page with filters and pagination"
+```
+
+---
+
+## Task 7: Alerts page + AlertList component
+
+**Files:**
+- Create: `next-app/components/AlertList.tsx`
+- Create: `next-app/app/(protected)/alerts/page.tsx`
+
+- [ ] **Step 1: Crear components/AlertList.tsx**
 
 ```typescript
-import type { AuditLogEntry } from '../api/auditLog';
+import type { AuditLogEntry } from '@/lib/api/auditLog';
 
 interface AlertListProps {
   alerts: AuditLogEntry[];
@@ -1655,14 +1174,15 @@ export default function AlertList({ alerts }: AlertListProps) {
 }
 ```
 
-- [ ] **Step 4: Crear src/pages/AlertsPage.tsx**
+- [ ] **Step 2: Crear app/(protected)/alerts/page.tsx**
 
 ```typescript
+'use client';
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { listAlerts } from '../api/alerts';
-import type { AuditLogEntry } from '../api/auditLog';
-import AlertList from '../components/AlertList';
+import { useAuth } from '@/contexts/AuthContext';
+import { listAlerts } from '@/lib/api/alerts';
+import type { AuditLogEntry } from '@/lib/api/auditLog';
+import AlertList from '@/components/AlertList';
 
 export default function AlertsPage() {
   const { token } = useAuth();
@@ -1684,42 +1204,75 @@ export default function AlertsPage() {
 }
 ```
 
-- [ ] **Step 5: Correr todos los tests**
+- [ ] **Step 3: Correr todos los tests**
 
 ```bash
-npx vitest run
+npx jest
 ```
 
 Expected: PASS — todos los tests
 
-- [ ] **Step 6: Verificar que el build compila sin errores**
+- [ ] **Step 4: Verificar que TypeScript compila sin errores**
 
 ```bash
-npm run build
+npx tsc --noEmit
 ```
 
-Expected: build exitoso en `dist/`
+Expected: sin errores
 
-- [ ] **Step 7: Verificar flujo completo en dev**
+- [ ] **Step 5: Commit**
 
 ```bash
-VITE_API_URL=http://localhost:3000 npm run dev
+git add components/AlertList.tsx "app/(protected)/alerts/"
+git commit -m "feat: add alerts page"
 ```
 
-Verificar manualmente:
-- `/register` → crea usuario, redirige a `/keys`
-- `/keys` → crea una key → muestra `PlainKeyAlert` amarillo → dismiss → desaparece
-- Revocar una key → el card pasa a estado REVOKED sin botón Revoke
-- `/audit-log` → tabla con filtros de plataforma, fecha, resultado funcionando
-- `/alerts` → lista de acciones bloqueadas por reglas globales
-- Logout → redirige a `/login`
-- Acceder a `/keys` sin token → redirige a `/login`
+---
 
-- [ ] **Step 8: Commit final**
+## Task 8: Dev server verification
+
+**Files:** ninguno — solo verificación manual
+
+- [ ] **Step 1: Levantar el dev server**
 
 ```bash
-git add src/components/AuditLogTable.tsx src/components/AlertList.tsx src/pages/AuditLogPage.tsx src/pages/AlertsPage.tsx
-git commit -m "feat: add audit log and alerts pages"
+npm run dev
+```
+
+Expected: servidor corriendo en `http://localhost:3000`
+
+- [ ] **Step 2: Verificar flujo completo**
+
+Abrir `http://localhost:3000` en el browser y verificar:
+
+1. Redirige a `/login` si no hay token en localStorage
+2. `/register` → completar form → redirige a `/keys` → aparece la nav
+3. `/keys` → click "New Key" → seleccionar nombre + scope → click Create → aparece `PlainKeyAlert` amarillo → click "I saved it" → desaparece
+4. La key creada aparece en la lista con prefix visible y badges de scope
+5. Click "Revoke" en una key → card pasa a REVOKED, desaparece el botón Revoke
+6. `/audit-log` → tabla con las acciones registradas
+7. Filtrar por plataforma → tabla se actualiza
+8. Cambiar página con Prev/Next
+9. `/alerts` → lista de acciones bloqueadas por regla global (puede estar vacía)
+10. Click "Logout" → redirige a `/login`, intentar volver a `/keys` → redirige a `/login`
+
+- [ ] **Step 3: Verificar que tokens SDK no pasan el auth guard**
+
+```bash
+# Generar un token SDK (sin type: user_session)
+node -e "const jwt = require('jsonwebtoken'); console.log(jwt.sign({ userId: 'u1', type: 'sdk_token' }, 'test-secret-at-least-32-characters-long'))"
+```
+
+Meter ese token manualmente en localStorage (`auth.token`) y navegar a `/keys`.
+
+Expected: el layout protegido detecta que el token no tiene `type: user_session` (la API devuelve 401 en todos los endpoints), y el fetch falla. La página muestra lista vacía — no accede a datos de otro usuario.
+
+- [ ] **Step 4: Commit final si hay cambios pendientes**
+
+```bash
+git status
+git add -A
+git commit -m "feat: dashboard complete — keys, audit log, alerts pages"
 ```
 
 ---
@@ -1727,24 +1280,23 @@ git commit -m "feat: add audit log and alerts pages"
 ## Self-Review
 
 **Spec coverage:**
-- ✅ Registro y login de usuarios → `auth.ts` (Platform API) + `LoginPage`, `RegisterPage`
-- ✅ Crear API Key con nombre + scope → `CreateKeyModal` + `POST /v1/keys`
-- ✅ Scope validado contra `ALLOWED_ACTIONS` en el form (solo muestra acciones válidas)
+- ✅ Registro y login → `app/login/page.tsx`, `app/register/page.tsx`, `lib/api/auth.ts`
+- ✅ Crear API Key con nombre + scope → `CreateKeyModal` + `POST /api/keys`
+- ✅ Solo acciones válidas en el form → `AVAILABLE_SCOPES` en `CreateKeyModal` refleja `ALLOWED_ACTIONS` del backend
 - ✅ Ver keys activas (solo prefix visible) → `KeyCard` muestra `prefix••••••••`
 - ✅ Plain key mostrado una sola vez post-creación → `PlainKeyAlert` con dismiss
-- ✅ Revocar key → botón Revoke desaparece al revocar, card pasa a REVOKED
-- ✅ Historial de acciones → `AuditLogPage` + `GET /v1/audit-log`
-- ✅ Filtrar por plataforma, fecha, resultado → filtros inline en `AuditLogPage`
-- ✅ Paginación de 50 entradas → botones Prev/Next en `AuditLogPage`
-- ✅ Alertas de acciones bloqueadas por regla global → `AlertsPage` + `GET /v1/alerts`
-- ✅ Rutas protegidas → `PrivateRoute` redirige a `/login` si no hay token
+- ✅ Revocar key → card pasa a REVOKED sin botón Revoke
+- ✅ Historial de acciones → `AuditLogPage` + `GET /api/audit-log`
+- ✅ Filtrar por plataforma, fecha, resultado → filtros inline
+- ✅ Paginación de 50 entradas → botones Prev/Next
+- ✅ Alertas de acciones bloqueadas por regla global → `AlertsPage` + `GET /api/alerts`
+- ✅ Rutas protegidas → `app/(protected)/layout.tsx` redirige a `/login` si no hay token
 - ✅ Logout limpia localStorage y redirige a `/login`
-- ✅ Tokens SDK no pueden usarse en el dashboard → `type: user_session` requerido por `requireAuth`
+- ✅ Tokens SDK no autentican el dashboard → `getAuthUserId` en el backend exige `type: user_session` (Plan 1, VULN-001)
 
 **Placeholder scan:** Ninguno.
 
 **Type consistency:**
-- `ApiKeyRecord` definido en `api/keys.ts` → usado en `KeyCard`, `KeysPage`
-- `AuditLogEntry` definido en `api/auditLog.ts` → usado en `AuditLogTable`, `AlertList`, `AuditLogPage`, `AlertsPage`, `api/alerts.ts`
-- `AuditLogFilters` definido en `api/auditLog.ts` → usado en `AuditLogPage`
-- `CreateKeyResponse` definido en `api/keys.ts` → usado en `KeysPage`
+- `ApiKeyRecord`, `CreateKeyResponse` definidos en `lib/api/keys.ts` → usados en `KeyCard`, `KeysPage`
+- `AuditLogEntry`, `AuditLogFilters` definidos en `lib/api/auditLog.ts` → usados en `AuditLogTable`, `AlertList`, `AuditLogPage`, `AlertsPage`, `lib/api/alerts.ts`
+- `AuthContextValue` definido en `contexts/AuthContext.tsx` → retornado por `useAuth()` y usado en todas las páginas protegidas
