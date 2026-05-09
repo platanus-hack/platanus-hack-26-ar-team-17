@@ -45,10 +45,10 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
-  register: (email: string, password: string) =>
+  register: (email: string, password: string, full_name?: string, company?: string) =>
     req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/register', null, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, full_name, company }),
     }),
 };
 

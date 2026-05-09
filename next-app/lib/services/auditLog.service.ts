@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { supabase } from '../db/supabase';
 
 interface LogParams {
-  agentId: string | null;
   apiKeyId: string | null;
   userId: string | null;
   action: string;
@@ -28,7 +27,6 @@ export async function writeLog(params: LogParams) {
   const { data: entry, error } = await supabase
     .from('audit_logs')
     .insert({
-      agent_id: params.agentId,
       api_key_id: params.apiKeyId,
       user_id: params.userId,
       action: params.action,

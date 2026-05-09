@@ -1,4 +1,5 @@
--- Run this SQL in the Supabase SQL editor to create the schema
+-- Run this SQL in the Supabase SQL editor to create the schema from scratch.
+-- If you already have tables, use migration_001_patch.sql instead.
 
 create type key_status as enum ('ACTIVE', 'REVOKED');
 create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED');
@@ -8,12 +9,28 @@ create table users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   password text not null,
+  full_name text,
+  company text,
+  kyc_status text not null default 'PENDING',
+  kyc_verified_at timestamptz,
+  didit_session_id text,
+  didit_session_url text,
   created_at timestamptz default now()
 );
 
-create table api_keys (
+create table agents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id) not null,
+  name text not null,
+  platform text not null,
+  status text not null default 'ACTIVE',
+  created_at timestamptz default now()
+);
+create index on agents(user_id);
+
+create table api_keys (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid references agents(id) not null,
   name text not null,
   key_hash text unique not null,
   prefix text not null,
@@ -23,13 +40,15 @@ create table api_keys (
   revoked_at timestamptz
 );
 create index on api_keys(key_hash);
-create index on api_keys(user_id);
+create index on api_keys(agent_id);
 
 create table audit_logs (
   id uuid primary key default gen_random_uuid(),
-  api_key_id text not null,
-  user_id text not null,
+  agent_id text,
+  api_key_id text,
+  user_id text,
   action text not null,
+  user_input text,
   platform text not null,
   result log_result not null,
   rule_violated text,
@@ -47,13 +66,11 @@ create table global_rules (
   created_at timestamptz default now()
 );
 
--- Replaces Redis SET for JWT revocation
 create table revoked_tokens (
   jti text primary key,
   revoked_at timestamptz default now()
 );
 
--- Replaces Redis INCR for rate limiting (60-second sliding window)
 create table rate_limits (
   ip text primary key,
   count integer not null default 0,

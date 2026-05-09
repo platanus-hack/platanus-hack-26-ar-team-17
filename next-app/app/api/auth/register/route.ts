@@ -4,13 +4,18 @@ import bcrypt from 'bcryptjs';
 import { supabase } from '@/lib/db/supabase';
 import { issueUserToken } from '@/lib/services/token.service';
 
-const bodySchema = z.object({ email: z.string().email(), password: z.string().min(8) });
+const bodySchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  full_name: z.string().min(1).max(120).optional(),
+  company: z.string().max(120).optional(),
+});
 
 export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const { email, password } = parsed.data;
+  const { email, password, full_name, company } = parsed.data;
 
   const { data: existing } = await supabase.from('users').select('id').eq('email', email).single();
   if (existing) return NextResponse.json({ error: 'email_taken' }, { status: 409 });
@@ -18,7 +23,7 @@ export async function POST(req: NextRequest) {
   const hashed = await bcrypt.hash(password, 12);
   const { data: user, error } = await supabase
     .from('users')
-    .insert({ email, password: hashed })
+    .insert({ email, password: hashed, full_name: full_name ?? null, company: company ?? null, kyc_status: 'PENDING' })
     .select()
     .single();
 

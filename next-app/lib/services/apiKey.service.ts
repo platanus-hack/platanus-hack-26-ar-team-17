@@ -1,48 +1,39 @@
 import { supabase } from '../db/supabase';
 import { generateApiKey, hashApiKey, getKeyPrefix } from '../utils/crypto';
 
+const ALL_SCOPES = ['send_message', 'read_messages', 'create_post', 'delete_post', 'read_profile', 'update_profile'];
+
 export interface ApiKeyRecord {
   id: string;
-  agent_id: string;
   user_id: string;
   status: string;
-}
-
-interface ApiKeyRow {
-  id: string;
-  agent_id: string;
-  status: string;
-  agents: { user_id: string; status: string } | null;
 }
 
 export async function validateApiKeyHash(keyHash: string): Promise<ApiKeyRecord | null> {
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, agent_id, status, agents(user_id, status)')
+    .select('id, user_id, status')
     .eq('key_hash', keyHash)
-    .single<ApiKeyRow>();
-  if (error || !data || !data.agents) return null;
+    .single<{ id: string; user_id: string; status: string }>();
+
+  if (error || !data) return null;
   if (data.status !== 'ACTIVE') return null;
-  if (data.agents.status !== 'ACTIVE') return null;
-  return {
-    id: data.id,
-    agent_id: data.agent_id,
-    user_id: data.agents.user_id,
-    status: data.status,
-  };
+  return { id: data.id, user_id: data.user_id, status: data.status };
 }
 
 export async function createApiKey(params: {
-  agentId: string;
+  userId: string;
   name: string;
+  scope?: string[];
 }): Promise<{ id: string; plainKey: string; prefix: string }> {
   const plainKey = generateApiKey();
   const keyHash = hashApiKey(plainKey);
   const prefix = getKeyPrefix(plainKey);
+  const scope = params.scope ?? ALL_SCOPES;
 
   const { data, error } = await supabase
     .from('api_keys')
-    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, prefix })
+    .insert({ user_id: params.userId, name: params.name, key_hash: keyHash, prefix, scope })
     .select()
     .single();
 
@@ -53,14 +44,16 @@ export async function createApiKey(params: {
 export async function revokeApiKey(keyId: string, userId: string): Promise<void> {
   const { data: key } = await supabase
     .from('api_keys')
-    .select('id, agents!inner(user_id)')
+    .select('id, user_id')
     .eq('id', keyId)
-    .single<{ id: string; agents: { user_id: string } }>();
-  if (!key || key.agents.user_id !== userId) return;
+    .single<{ id: string; user_id: string }>();
+
+  if (!key || key.user_id !== userId) return;
 
   const { error } = await supabase
     .from('api_keys')
     .update({ status: 'REVOKED', revoked_at: new Date().toISOString() })
     .eq('id', keyId);
+
   if (error) throw error;
 }

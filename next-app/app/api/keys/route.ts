@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUserId } from '@/lib/auth';
 import { createApiKey } from '@/lib/services/apiKey.service';
-import { ALLOWED_ACTIONS } from '@/lib/services/scope.service';
 import { supabase } from '@/lib/db/supabase';
 
 const createBody = z.object({
   name: z.string().min(1).max(100),
-  scope: z.array(z.enum([...ALLOWED_ACTIONS] as [string, ...string[]])).min(1),
+  scope: z.array(z.string()).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -41,6 +40,6 @@ export async function POST(req: NextRequest) {
   const parsed = createBody.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const result = await createApiKey({ userId, ...parsed.data });
+  const result = await createApiKey({ userId, name: parsed.data.name, scope: parsed.data.scope });
   return NextResponse.json(result, { status: 201 });
 }

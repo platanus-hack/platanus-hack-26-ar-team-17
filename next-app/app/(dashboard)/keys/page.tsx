@@ -7,8 +7,6 @@ import { keysApi, kycApi, ApiKey } from '@/lib/api';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 
-const ALL_SCOPES = ['send_message', 'read_messages', 'create_post', 'delete_post', 'read_profile', 'update_profile'];
-
 function StatusPill({ status }: { status: string }) {
   const active = status === 'ACTIVE';
   return (
@@ -74,7 +72,7 @@ export default function KeysPage() {
   const [loading, setLoading] = useState(true);
   const [newKey, setNewKey] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', scope: [...ALL_SCOPES] });
+  const [form, setForm] = useState({ name: '' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [kycBlocked, setKycBlocked] = useState(false);
@@ -88,24 +86,16 @@ export default function KeysPage() {
 
   useEffect(() => { load(); }, [token]);
 
-  function toggleScope(s: string) {
-    setForm(f => ({
-      ...f,
-      scope: f.scope.includes(s) ? f.scope.filter(x => x !== s) : [...f.scope, s],
-    }));
-  }
-
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     if (!token) return;
-    if (form.scope.length === 0) { setCreateError('Select at least one permission'); return; }
     setCreating(true);
     setCreateError('');
     try {
       const result = await keysApi.create(token, form);
       setNewKey(result.plainKey);
       setShowCreate(false);
-      setForm({ name: '', scope: [...ALL_SCOPES] });
+      setForm({ name: '' });
       await load();
     } catch (err: unknown) {
       const e = err as Error & { status?: number };
@@ -208,22 +198,6 @@ export default function KeysPage() {
                 />
               </div>
 
-              <div className="field" style={{ marginBottom: 20 }}>
-                <label className="field-label" style={{ marginBottom: 10 }}>Permissions</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {ALL_SCOPES.map(s => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => toggleScope(s)}
-                      className={`chip ${form.scope.includes(s) ? 'active' : ''}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {createError && (
                 <div className="form-error" style={{ marginBottom: 14 }}>
                   <span>⚠</span> {createError}
@@ -268,10 +242,10 @@ export default function KeysPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {/* Table header */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 120px 180px 100px 80px',
+            display: 'grid', gridTemplateColumns: '1fr 120px 140px 80px',
             padding: '8px 20px',
           }}>
-            {['Key', 'Status', 'Permissions', 'Created', ''].map(h => (
+            {['Key', 'Status', 'Created', ''].map(h => (
               <span key={h} style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{h}</span>
             ))}
           </div>
@@ -281,7 +255,7 @@ export default function KeysPage() {
               <div
                 key={key.id}
                 style={{
-                  display: 'grid', gridTemplateColumns: '1fr 120px 180px 100px 80px',
+                  display: 'grid', gridTemplateColumns: '1fr 120px 140px 80px',
                   padding: '14px 20px', alignItems: 'center',
                   borderBottom: i < keys.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   transition: 'background 120ms ease',
@@ -295,21 +269,6 @@ export default function KeysPage() {
                 </div>
 
                 <StatusPill status={key.status} />
-
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                  {(key.scope ?? []).slice(0, 3).map(s => (
-                    <span key={s} style={{
-                      ...mono, fontSize: 9, color: 'var(--text-muted)',
-                      background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
-                      padding: '1px 6px', borderRadius: 4,
-                    }}>
-                      {s}
-                    </span>
-                  ))}
-                  {(key.scope ?? []).length > 3 && (
-                    <span style={{ ...mono, fontSize: 9, color: 'var(--text-faint)' }}>+{key.scope.length - 3}</span>
-                  )}
-                </div>
 
                 <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>
                   {new Date(key.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

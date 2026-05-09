@@ -9,6 +9,8 @@ import { authApi } from '@/lib/api';
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 
 export default function RegisterClient() {
+  const [fullName, setFullName] = useState('');
+  const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ export default function RegisterClient() {
     if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
-      const { token, userId, kycStatus } = await authApi.register(email, password);
+      const { token, userId, kycStatus } = await authApi.register(email, password, fullName, company);
       login(token, userId, kycStatus);
       router.push(kycStatus === 'VERIFIED' ? '/keys' : '/kyc');
     } catch (err: unknown) {
@@ -57,6 +59,30 @@ export default function RegisterClient() {
 
           <form onSubmit={handleSubmit}>
             <div className="field">
+              <label className="field-label">Full name</label>
+              <input
+                className="z-input"
+                type="text"
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                placeholder="Jane Doe"
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="field">
+              <label className="field-label">Company <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
+              <input
+                className="z-input"
+                type="text"
+                value={company}
+                onChange={e => setCompany(e.target.value)}
+                placeholder="Acme Corp"
+              />
+            </div>
+
+            <div className="field">
               <label className="field-label">Email</label>
               <input
                 className="z-input"
@@ -65,7 +91,6 @@ export default function RegisterClient() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@company.com"
                 required
-                autoFocus
               />
             </div>
 
