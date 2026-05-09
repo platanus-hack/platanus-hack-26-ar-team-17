@@ -1,7 +1,7 @@
 {
-  "name": "@agent-auth/sdk",
+  "name": "@zero-gate/sdk",
   "version": "1.0.0",
-  "description": "Agent Auth SDK — intercepta requests de agentes y valida contra Platform API",
+  "description": "Zero Gate SDK — intercepta requests de agentes y valida contra Platform API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

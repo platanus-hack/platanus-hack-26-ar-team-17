@@ -2,7 +2,7 @@ import { validateKeyAndGetToken } from './pipeline/validateKey';
 import { verifyRules } from './pipeline/verifyRules';
 import { AgentRequest, PipelineResult, SDKConfig } from './types';
 
-export class AgentAuthSDK {
+export class ZeroGateSDK {
   private config: SDKConfig;
 
   constructor(config: SDKConfig) {

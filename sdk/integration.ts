@@ -1,6 +1,6 @@
 /**
  * SDK Integration Test
- * Runs the full AgentAuthSDK pipeline against the real local Platform API.
+ * Runs the full ZeroGateSDK pipeline against the real local Platform API.
  *
  * The SDK enforces HTTPS in production. For local dev we wire the same
  * pipeline functions through a plain http client so we can test against
@@ -44,7 +44,7 @@ function httpPost(path: string, body: unknown): Promise<unknown> {
   });
 }
 
-// Mirrors AgentAuthSDK.run() — same 5-step pipeline, http transport for localhost
+// Mirrors ZeroGateSDK.run() — same 5-step pipeline, http transport for localhost
 async function runPipeline(
   apiKey: string,
   action: string,
@@ -63,7 +63,7 @@ async function runPipeline(
     return { allowed: false, error: (apiResponse as any).error ?? 'invalid_api_key' };
   }
 
-  // Step 3 — scope check (SDK-side, same logic as AgentAuthSDK)
+  // Step 3 — scope check (SDK-side, same logic as ZeroGateSDK)
   if (!verifyScope(action, apiResponse.scope ?? [])) {
     return { allowed: false, error: 'action_not_permitted' };
   }
@@ -79,7 +79,7 @@ async function runPipeline(
 // ── scenarios ─────────────────────────────────────────────────────────────────
 async function run() {
   console.log('='.repeat(60));
-  console.log(' AgentAuthSDK — Integration test against http://localhost:3001');
+  console.log(' ZeroGateSDK — Integration test against http://localhost:3001');
   console.log('='.repeat(60));
 
   const cases: Array<{ label: string; action: string; text?: string; expect: 'allowed' | 'blocked' }> = [

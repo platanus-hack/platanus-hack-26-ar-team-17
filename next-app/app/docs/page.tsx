@@ -107,19 +107,19 @@ export default function DocsPage() {
         </div>
 
         <Step n={1} title="Install">
-          <CodeBlock label="npm" code="npm install @agent-auth/sdk" />
+          <CodeBlock label="npm" code="npm install @zero-gate/sdk" />
           <p style={{ ...mono, fontSize: 11, color: '#5a5a5a', marginTop: -16, lineHeight: 1.6 }}>
             No registry yet? Add via path:{' '}
-            <code style={{ color: '#8a8a8a' }}>"@agent-auth/sdk": "file:../path-to-sdk"</code>
+            <code style={{ color: '#8a8a8a' }}>"@zero-gate/sdk": "file:../path-to-sdk"</code>
           </p>
         </Step>
 
         <Step n={2} title="Initialize with your platform URL">
           <CodeBlock
             label="TypeScript / JavaScript"
-            code={`import { AgentAuthSDK } from '@agent-auth/sdk';
+            code={`import { ZeroGateSDK } from '@zero-gate/sdk';
 
-const sdk = new AgentAuthSDK({
+const sdk = new ZeroGateSDK({
   platformApiUrl: '${platformUrl}',
 });`}
           />

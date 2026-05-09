@@ -1,11 +1,11 @@
-import { AgentAuthSDK } from '../src/index';
+import { ZeroGateSDK } from '../src/index';
 import * as client from '../src/http/client';
 
 jest.mock('../src/http/client');
 
-const sdk = new AgentAuthSDK({ platformApiUrl: 'https://api.example.com' });
+const sdk = new ZeroGateSDK({ platformApiUrl: 'https://api.example.com' });
 
-describe('AgentAuthSDK.run', () => {
+describe('ZeroGateSDK.run', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('returns allowed: true for a valid request', async () => {
@@ -78,20 +78,20 @@ describe('AgentAuthSDK.run', () => {
   });
 });
 
-describe('AgentAuthSDK constructor', () => {
+describe('ZeroGateSDK constructor', () => {
   it('throws when platformApiUrl uses http://', () => {
-    expect(() => new AgentAuthSDK({ platformApiUrl: 'http://api.example.com' }))
+    expect(() => new ZeroGateSDK({ platformApiUrl: 'http://api.example.com' }))
       .toThrow('HTTPS');
   });
 
   it('throws when platformApiUrl has no protocol', () => {
-    expect(() => new AgentAuthSDK({ platformApiUrl: 'api.example.com' }))
+    expect(() => new ZeroGateSDK({ platformApiUrl: 'api.example.com' }))
       .toThrow();
   });
 });
 
-describe('AgentAuthSDK.run — additional edge cases', () => {
-  const sdk2 = new AgentAuthSDK({ platformApiUrl: 'https://api.example.com' });
+describe('ZeroGateSDK.run — additional edge cases', () => {
+  const sdk2 = new ZeroGateSDK({ platformApiUrl: 'https://api.example.com' });
   beforeEach(() => jest.clearAllMocks());
 
   it('run with undefined text does not crash (text is optional)', async () => {

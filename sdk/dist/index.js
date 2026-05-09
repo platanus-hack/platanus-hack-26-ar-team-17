@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AgentAuthSDK = void 0;
+exports.ZeroGateSDK = void 0;
 const validateKey_1 = require("./pipeline/validateKey");
 const verifyRules_1 = require("./pipeline/verifyRules");
-class AgentAuthSDK {
+class ZeroGateSDK {
     config;
     constructor(config) {
         if (!config.platformApiUrl.startsWith('https://')) {
@@ -33,4 +33,4 @@ class AgentAuthSDK {
         };
     }
 }
-exports.AgentAuthSDK = AgentAuthSDK;
+exports.ZeroGateSDK = ZeroGateSDK;
