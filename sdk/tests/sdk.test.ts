@@ -77,3 +77,50 @@ describe('AgentAuthSDK.run', () => {
     expect(result.error).toBe('action_not_permitted');
   });
 });
+
+describe('AgentAuthSDK constructor', () => {
+  it('throws when platformApiUrl uses http://', () => {
+    expect(() => new AgentAuthSDK({ platformApiUrl: 'http://api.example.com' }))
+      .toThrow('HTTPS');
+  });
+
+  it('throws when platformApiUrl has no protocol', () => {
+    expect(() => new AgentAuthSDK({ platformApiUrl: 'api.example.com' }))
+      .toThrow();
+  });
+});
+
+describe('AgentAuthSDK.run — additional edge cases', () => {
+  const sdk2 = new AgentAuthSDK({ platformApiUrl: 'https://api.example.com' });
+  beforeEach(() => jest.clearAllMocks());
+
+  it('run with undefined text does not crash (text is optional)', async () => {
+    (client.post as jest.Mock).mockResolvedValue({
+      valid: true, token: 'tok', userId: 'u1', scope: ['send_message'],
+    });
+
+    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp' });
+    expect(result.allowed).toBe(true);
+  });
+
+  it('returns allowed: false when API returns empty scope array', async () => {
+    (client.post as jest.Mock).mockResolvedValue({
+      valid: true, token: 'tok', userId: 'u1', scope: [],
+    });
+
+    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp', text: 'hi' });
+    expect(result.allowed).toBe(false);
+    expect(result.error).toBe('action_not_permitted');
+  });
+
+  it('returns allowed: false when API returns valid:true but scope is undefined', async () => {
+    (client.post as jest.Mock).mockResolvedValue({
+      valid: true, token: 'tok', userId: 'u1',
+      // scope intentionally absent
+    });
+
+    const result = await sdk2.run({ apiKey: 'ak_key', action: 'send_message', platform: 'whatsapp', text: 'hi' });
+    expect(result.allowed).toBe(false);
+    expect(result.error).toBe('action_not_permitted');
+  });
+});
