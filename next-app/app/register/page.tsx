@@ -48,7 +48,10 @@ export default function RegisterPage() {
     setStatus('authenticating');
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/register` },
+      options: {
+        redirectTo: `${window.location.origin}/register`,
+        queryParams: { prompt: 'select_account' },
+      },
     });
   };
 
