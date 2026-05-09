@@ -11,24 +11,10 @@ export interface SDKConfig {
   userHash?: string;
 }
 
-export interface AgentRequest {
-  /** Optional payload / text content to validate against global rules */
-  text?: string;
-}
-
 export interface ValidationResponse {
-  valid: boolean;
-  token?: string;
-  userId?: string;
-  agentId?: string;
-  error?: string;
+  allowed: boolean;
 }
 
 export interface PipelineResult {
   allowed: boolean;
-  token?: string;
-  userId?: string;
-  agentId?: string;
-  executedAt: string;
-  error?: string;
 }

@@ -9,7 +9,8 @@ function run(command, args) {
 }
 
 async function main() {
-  run(process.execPath, ['./node_modules/typescript/bin/tsc']);
+  run(process.execPath, ['./scripts/build.cjs']);
+  run(process.execPath, ['./node_modules/jest/bin/jest.js', '--runInBand']);
 
   const client = require('../dist/http/client');
   const calls = [];
