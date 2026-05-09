@@ -1,0 +1,81 @@
+import { generateKeyPairSync, verify as cryptoVerify } from 'crypto';
+import { clearCache, getCachedToken } from '../../src/auth/cache';
+import { performChallengeFlow } from '../../src/auth/challengeFlow';
+import { buildChallengePayload } from '../../src/utils/ed25519';
+
+jest.mock('../../src/http/client');
+
+const { post } = require('../../src/http/client');
+
+function makeKeyPair() {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const privDer = privateKey.export({ type: 'pkcs8', format: 'der' }) as Buffer;
+  const privHex = privDer.slice(16).toString('hex');
+  const pubDer = publicKey.export({ type: 'spki', format: 'der' }) as Buffer;
+  const pubHex = pubDer.slice(12).toString('hex');
+  return { privHex, pubHex };
+}
+
+beforeEach(() => {
+  clearCache();
+  jest.clearAllMocks();
+});
+
+describe('performChallengeFlow', () => {
+  it('calls challenge and verify endpoints and returns the JWT', async () => {
+    const { privHex } = makeKeyPair();
+    const challengeNonce = 'abc123';
+    const challengeId = 'chal-uuid-1';
+    const agentId = 'agent-uuid-1';
+
+    post
+      .mockResolvedValueOnce({ challengeId, nonce: challengeNonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
+      .mockResolvedValueOnce({ accessToken: 'jwt-token', expiresAt: new Date(Date.now() + 300000).toISOString() });
+
+    const token = await performChallengeFlow(agentId, privHex, 'send_message', 'mcp', 'https://api.example.com');
+
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenNthCalledWith(
+      1,
+      'https://api.example.com/api/agent-auth/challenge',
+      { agentId, requestedAction: 'send_message', platform: 'mcp' },
+    );
+    expect(post).toHaveBeenNthCalledWith(
+      2,
+      'https://api.example.com/api/agent-auth/verify',
+      expect.objectContaining({ agentId, challengeId }),
+    );
+    expect(token).toBe('jwt-token');
+  });
+
+  it('caches the token after a successful flow', async () => {
+    const { privHex } = makeKeyPair();
+    post
+      .mockResolvedValueOnce({ challengeId: 'c', nonce: 'n', timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
+      .mockResolvedValueOnce({ accessToken: 'cached-token', expiresAt: new Date(Date.now() + 300000).toISOString() });
+
+    await performChallengeFlow('agent-1', privHex, 'action', 'mcp', 'https://api.example.com');
+
+    expect(getCachedToken()).toBe('cached-token');
+  });
+
+  it('sends a valid Ed25519 signature to the verify endpoint', async () => {
+    const { privHex, pubHex } = makeKeyPair();
+    const challengeId = 'chal-sig-test';
+    const nonce = 'nonce-sig-test';
+    const agentId = 'agent-sig-test';
+
+    post
+      .mockResolvedValueOnce({ challengeId, nonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
+      .mockResolvedValueOnce({ accessToken: 'tok', expiresAt: new Date(Date.now() + 300000).toISOString() });
+
+    await performChallengeFlow(agentId, privHex, 'action', 'mcp', 'https://api.example.com');
+
+    const { signature } = post.mock.calls[1][1];
+    const payload = buildChallengePayload(challengeId, nonce, agentId);
+    const prefix = Buffer.from('302a300506032b6570032100', 'hex');
+    const spkiDer = Buffer.concat([prefix, Buffer.from(pubHex, 'hex')]);
+    const ok = cryptoVerify(null, Buffer.from(payload, 'utf8'), { key: spkiDer, format: 'der', type: 'spki' }, Buffer.from(signature, 'hex'));
+    expect(ok).toBe(true);
+  });
+});

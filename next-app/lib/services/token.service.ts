@@ -8,13 +8,26 @@ export interface DecodedToken {
   agentId?: string;
   apiKeyId?: string;
   jti: string;
-  type: 'sdk_token' | 'user_session';
+  type: 'sdk_token' | 'user_session' | 'agent_session';
   iat: number;
   exp: number;
 }
 
+export interface AgentTokenPayload {
+  agentId: string;
+  did: string;
+  scopes: string[];
+}
+
+export function issueAgentSessionToken(agentId: string, did: string, scopes: string[]): string {
+  const jti = crypto.randomUUID();
+  return jwt.sign({ agentId, did, scopes, jti, type: 'agent_session' }, config.JWT_SECRET, {
+    expiresIn: '5m',
+  });
+}
+
 export async function issueToken(
-  payload: { userId: string; agentId: string },
+  payload: { userId: string; agentId?: string; apiKeyId?: string },
   expiresIn: jwt.SignOptions['expiresIn'] = '5m',
 ): Promise<{ token: string; expiresAt: string }> {
   const jti = crypto.randomUUID();
