@@ -173,6 +173,35 @@ type ScreenProps = {
 
 const EmailScreen = ({ onNext, onBack, state, setState }: ScreenProps) => {
   const valid = /\S+@\S+\.\S+/.test(state.email) && state.password.length >= 8;
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: state.email, password: state.password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error === "email_taken" ? "That email is already registered." : "Registration failed.");
+        return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("zero_token", data.token);
+        localStorage.setItem("zero_user_id", data.userId);
+      }
+      onNext();
+    } catch {
+      setErr("Network error. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="card fade-enter">
       <h1 className="card-title">Claim your handle</h1>
@@ -209,8 +238,10 @@ const EmailScreen = ({ onNext, onBack, state, setState }: ScreenProps) => {
         />
       </div>
 
-      <button className="btn btn-primary" onClick={onNext} disabled={!valid}>
-        Continue      </button>
+      {err && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>{err}</div>}
+      <button className="btn btn-primary" onClick={submit} disabled={!valid || submitting}>
+        {submitting ? "Creating…" : "Continue"}
+      </button>
       <div style={{ textAlign: "center", marginTop: 12 }}>
         <button className="btn-link" onClick={onBack}>← Back</button>
       </div>
@@ -403,7 +434,51 @@ const FaceScreen = ({ onNext, onBack }: { onNext: () => void; onBack: () => void
   );
 };
 
+const AGENT_SCOPES = [
+  "send_message",
+  "read_messages",
+  "create_post",
+  "delete_post",
+  "read_profile",
+  "update_profile",
+];
+
 const AgentScreen = ({ onNext, onBack, state, setState }: ScreenProps) => {
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("zero_token") : null;
+      if (!token) {
+        setErr("Session expired. Please restart.");
+        return;
+      }
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: state.agentName, scope: state.scopes }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error || "Failed to create key.");
+        return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("zero_api_key", data.plainKey);
+        localStorage.setItem("zero_api_key_id", data.id);
+        localStorage.setItem("zero_api_key_prefix", data.prefix);
+      }
+      onNext();
+    } catch {
+      setErr("Network error. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="card fade-enter">
       <h1 className="card-title">Bind your first agent</h1>
@@ -423,7 +498,7 @@ const AgentScreen = ({ onNext, onBack, state, setState }: ScreenProps) => {
       <div className="field">
         <div className="field-label">Capabilities</div>
         <div className="chip-row" style={{ marginBottom: 0 }}>
-          {["read.web", "write.email", "spend.usd<100", "run.code", "sign.txn"].map((s) => (
+          {AGENT_SCOPES.map((s) => (
             <div
               key={s}
               className={`chip ${state.scopes.includes(s) ? "active" : ""}`}
@@ -442,8 +517,15 @@ const AgentScreen = ({ onNext, onBack, state, setState }: ScreenProps) => {
         </div>
       </div>
 
-      <button className="btn btn-primary" onClick={onNext} disabled={!state.agentName} style={{ marginTop: 18 }}>
-        Bind      </button>
+      {err && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 8 }}>{err}</div>}
+      <button
+        className="btn btn-primary"
+        onClick={submit}
+        disabled={!state.agentName || state.scopes.length === 0 || submitting}
+        style={{ marginTop: 18 }}
+      >
+        {submitting ? "Binding…" : "Bind"}
+      </button>
       <div style={{ textAlign: "center", marginTop: 12 }}>
         <button className="btn-link" onClick={onBack}>← Back</button>
       </div>
@@ -455,6 +537,13 @@ const VerifiedScreen = ({ state, onRestart }: { state: FormState; onRestart: () 
   const displayName = state.handle
     ? state.handle.split(".").map((p) => (p[0]?.toUpperCase() ?? "") + p.slice(1)).join(" ")
     : "Verified Human";
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [keyPrefix, setKeyPrefix] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setApiKey(localStorage.getItem("zero_api_key"));
+    setKeyPrefix(localStorage.getItem("zero_api_key_prefix"));
+  }, []);
   return (
     <div className="card fade-enter">
       <h1 className="card-title">Welcome to zero.</h1>
@@ -474,7 +563,7 @@ const VerifiedScreen = ({ state, onRestart }: { state: FormState; onRestart: () 
           <div className="id-card-status">IAL2 · LIVE</div>
         </div>
         <div className="id-card-grid">
-          <div className="id-card-row"><div className="k">Identity DID</div><div className="v">did:zero:0x4f…8c2a</div></div>
+          <div className="id-card-row"><div className="k">API key</div><div className="v">{keyPrefix ? `${keyPrefix}…` : "—"}</div></div>
           <div className="id-card-row"><div className="k">Issued</div><div className="v">2026-05-09 07:14 UTC</div></div>
           <div className="id-card-row"><div className="k">Document</div><div className="v">{state.docType || "Passport"} · ✓</div></div>
           <div className="id-card-row"><div className="k">Liveness</div><div className="v">0.987 match</div></div>
@@ -483,6 +572,16 @@ const VerifiedScreen = ({ state, onRestart }: { state: FormState; onRestart: () 
         </div>
       </div>
 
+      {apiKey && (
+        <div style={{ marginTop: 18, padding: 12, background: "rgba(163,230,53,0.06)", border: "1px solid rgba(163,230,53,0.3)", borderRadius: 8 }}>
+          <div style={{ fontSize: 11, color: "var(--text-dim)", marginBottom: 6 }}>
+            Save this key now — it won&apos;t be shown again
+          </div>
+          <code style={{ fontFamily: "var(--font-mono), monospace", fontSize: 12, wordBreak: "break-all", color: "var(--accent)" }}>
+            {apiKey}
+          </code>
+        </div>
+      )}
       <button className="btn btn-primary" style={{ marginTop: 18 }}>Open dashboard</button>
       <div style={{ textAlign: "center", marginTop: 12 }}>
         <button className="btn-link" onClick={onRestart}>↺ Restart demo</button>
@@ -518,7 +617,7 @@ export default function Onboarding() {
     phone: "",
     docType: "Passport",
     agentName: "research-runner-01",
-    scopes: ["read.web"],
+    scopes: ["read_messages"],
   });
 
   const next = () => setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
