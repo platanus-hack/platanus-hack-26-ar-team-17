@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'SDK Docs',
-  description: 'Integrate the Zero SDK into your AI agent or MCP server in minutes.',
+  title: 'Developer Docs',
+  description: 'Add Zero identity checks to an AI agent or MCP server.',
 };
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 
-function CodeBlock({ code, label, lang = 'ts' }: { code: string; label?: string; lang?: string }) {
+function CodeBlock({ code, label }: { code: string; label?: string }) {
   return (
     <div style={{ marginBottom: 24 }}>
       {label && (
@@ -19,12 +19,16 @@ function CodeBlock({ code, label, lang = 'ts' }: { code: string; label?: string;
         </div>
       )}
       <pre style={{
-        ...mono, fontSize: 13, lineHeight: 1.75,
+        ...mono,
+        fontSize: 13,
+        lineHeight: 1.75,
         background: '#080808',
         border: '1px solid rgba(255,255,255,0.07)',
         borderRadius: label ? '0 8px 8px 8px' : 8,
         padding: '18px 22px',
-        color: '#e8e8e8', overflowX: 'auto', margin: 0,
+        color: '#e8e8e8',
+        overflowX: 'auto',
+        margin: 0,
         whiteSpace: 'pre',
       }}>
         {code}
@@ -42,7 +46,7 @@ function Section({ title, tag, children }: { title: string; tag?: string; childr
             {tag}
           </span>
         )}
-        <h2 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: '-0.03em', margin: 0 }}>
+        <h2 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: 0, margin: 0 }}>
           {title}
         </h2>
       </div>
@@ -59,10 +63,19 @@ function InfoBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+function BulletList({ items }: { items: React.ReactNode[] }) {
+  return (
+    <ul style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.9, paddingLeft: 18, margin: '0 0 18px' }}>
+      {items.map((item, index) => (
+        <li key={index}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
 export default function DocsPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
-      {/* Dot grid */}
       <div style={{
         position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
         backgroundImage: 'radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)',
@@ -70,16 +83,15 @@ export default function DocsPage() {
         maskImage: 'radial-gradient(ellipse 80% 80% at 50% 20%, black, transparent)',
       }} />
 
-      {/* Nav */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 10,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 48px',
+        padding: '16px clamp(20px, 6vw, 48px)',
         borderBottom: '1px solid rgba(255,255,255,0.05)',
         background: 'rgba(5,5,5,0.92)', backdropFilter: 'blur(20px)',
       }}>
         <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'baseline', gap: 1 }}>
-          <span style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontWeight: 600, fontSize: 18, letterSpacing: '-0.05em', color: 'var(--text)' }}>
+          <span style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontWeight: 600, fontSize: 18, letterSpacing: 0, color: 'var(--text)' }}>
             zero
           </span>
           <span style={{ color: 'var(--accent)', fontSize: 20, fontWeight: 600 }}>.</span>
@@ -89,166 +101,167 @@ export default function DocsPage() {
             Sign in
           </Link>
           <Link href="/login" style={{ ...mono, fontSize: 12, color: '#050505', textDecoration: 'none', padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', fontWeight: 600 }}>
-            Get started →
+            Get started -&gt;
           </Link>
         </div>
       </nav>
 
-      {/* Content */}
-      <div style={{ maxWidth: 740, margin: '0 auto', padding: '64px 48px 120px', position: 'relative', zIndex: 1 }}>
-
-        {/* Hero */}
+      <main style={{ maxWidth: 780, margin: '0 auto', padding: '64px clamp(20px, 6vw, 48px) 120px', position: 'relative', zIndex: 1 }}>
         <div style={{ marginBottom: 64 }}>
           <span style={{ ...mono, fontSize: 11, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16, display: 'block' }}>
-            SDK Docs · v2
+            Developer docs / SDK v1.0.3
           </span>
-          <h1 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 38, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1.1, margin: '0 0 18px' }}>
-            Add Zero to your agent<br />in 5 minutes.
+          <h1 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 38, fontWeight: 700, letterSpacing: 0, lineHeight: 1.1, margin: '0 0 18px' }}>
+            Add accountable identity<br />to your agent.
           </h1>
-          <p style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.75, margin: 0, maxWidth: 560 }}>
-            The SDK validates every action your agent or MCP server takes before it executes —
-            with a full audit trail, automatic platform detection, and cryptographic key binding.
+          <p style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.75, margin: 0, maxWidth: 620 }}>
+            Zero links an AI agent or MCP server to the human account that created it. Call the SDK before a real-world action, and Zero verifies the runtime, returns a short-lived token, and records the action for audit.
           </p>
         </div>
 
-        {/* Step 1 — Install */}
+        <Section tag="00" title="The contract">
+          <InfoBox>
+            Your app keeps doing the work. Zero answers one question first: is this named agent, running for this creator, allowed to take this action right now?
+          </InfoBox>
+          <BulletList
+            items={[
+              <>A human creates an agent in the Zero dashboard after signing in.</>,
+              <>The agent runtime receives <code style={mono}>ZERO_AGENT_ID</code> and a secret or private key.</>,
+              <>Your code calls <code style={mono}>zero.run()</code> before side effects like messages, tool calls, writes, purchases, or API mutations.</>,
+              <>Zero validates the runtime proof and platform binding, then logs the action against the agent and creator.</>,
+              <>If the agent is disabled or credentials do not match, <code style={mono}>allowed</code> is <code style={mono}>false</code>.</>,
+            ]}
+          />
+        </Section>
+
         <Section tag="01" title="Install">
           <CodeBlock label="npm" code="npm install @zero-gate/sdk" />
           <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: -8, lineHeight: 1.8 }}>
-            Not on npm yet?{' '}
-            <code style={{ color: 'var(--text-dim)' }}>npm install ../sdk/zero-gate-sdk-1.0.0.tgz</code>{' '}
-            from this repo.
+            Local repo install: <code style={{ color: 'var(--text-dim)' }}>npm install ../sdk/zero-gate-sdk-1.0.3.tgz</code>
           </p>
         </Section>
 
-        {/* Step 2 — Get credentials */}
-        <Section tag="02" title="Get your credentials from the dashboard">
+        <Section tag="02" title="Create an agent">
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+            In the dashboard, create one agent per runtime you want to identify. Copy the agent ID and the API secret when it is shown. The secret is meant to be stored once in the agent environment.
+          </p>
+          <CodeBlock
+            label="Dashboard result"
+            code={`ZERO_AGENT_ID=0f6f7f64-8c7f-4a8f-bcf1-8d33d624f2a1
+ZERO_API_SECRET=zgs_...`}
+          />
           <InfoBox>
-            <span style={{ color: 'var(--accent)' }}>apiKey</span> — created per agent under <strong>API Keys</strong>. One key per agent or MCP server.<br />
-            <span style={{ color: 'var(--accent)' }}>userHash</span> — your account identifier, visible in <strong>Settings</strong>. Shared across all your agents.
+            For new integrations, use <code style={mono}>ZERO_AGENT_ID</code> + <code style={mono}>ZERO_API_SECRET</code>. The older <code style={mono}>ZERO_API_KEY</code> + <code style={mono}>ZERO_USER_HASH</code> flow still exists for compatibility, but it is not the recommended path.
           </InfoBox>
-          <CodeBlock
-            label="Dashboard → API Keys → New Key"
-            code={`apiKey:   ak_abc1234...   ← unique per agent
-userHash: a1b2c3d4...   ← same for all your agents`}
-          />
         </Section>
 
-        {/* Step 3 — Initialize once */}
-        <Section tag="03" title="Initialize — zero config">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
-            The SDK reads credentials from env vars. URL, platform and action are auto-detected — no extra config needed.
-          </p>
+        <Section tag="03" title="Configure the runtime">
           <CodeBlock
-            label="server.ts"
-            code={`import { ZeroGateSDK } from '@zero-gate/sdk';
+            label=".env"
+            code={`ZERO_AGENT_ID=0f6f7f64-8c7f-4a8f-bcf1-8d33d624f2a1
+ZERO_API_SECRET=zgs_...
 
-const zero = new ZeroGateSDK();`}
+# Optional
+ZERO_PLATFORM=mcp
+ZERO_PLATFORM_API_URL=http://localhost:3000`}
           />
-          <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 18px', lineHeight: 1.7 }}>
-            Override creds if needed: <code style={{ color: 'var(--text-dim)' }}>{`new ZeroGateSDK({ apiKey, userHash })`}</code>
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+            If <code style={mono}>ZERO_PLATFORM</code> is not set, the SDK detects MCP when <code style={mono}>@modelcontextprotocol/sdk</code> is installed. Otherwise it reports <code style={mono}>custom</code>.
           </p>
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.7 }}>
-            The user connecting to your MCP server provides the credentials via Claude Desktop config:
-          </p>
-          <CodeBlock
-            label="claude_desktop_config.json"
-            code={`{
-  "mcpServers": {
-    "your-mcp-server": {
-      "command": "node",
-      "args": ["server.js"],
-      "env": {
-        "ZERO_API_KEY":   "ak_abc1234...",
-        "ZERO_USER_HASH": "a1b2c3d4..."
-      }
-    }
-  }
-}`}
-          />
         </Section>
 
-        {/* Step 4 — Run */}
-        <Section tag="04" title="Wrap every action with sdk.run()">
+        <Section tag="04" title="Guard real actions">
           <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
-            Call <code style={mono}>run()</code> before executing any action. The SDK auto-infers the action from the calling function name.
+            Create the SDK once, then call <code style={mono}>run()</code> immediately before a meaningful side effect. Use named functions so audit logs show clear action names.
           </p>
           <CodeBlock
             label="usage"
-            code={`async function sendMessage(text: string) {
-  const result = await zero.run();
-  // action='sendMessage' inferred from this function name
+            code={`import { ZeroGateSDK } from '@zero-gate/sdk';
 
-  if (!result.allowed) {
-    console.error('blocked');
-    return;
+const zero = new ZeroGateSDK();
+
+export async function sendMessage(text: string) {
+  const auth = await zero.run();
+
+  if (!auth.allowed) {
+    return { ok: false, reason: 'blocked_by_zero' };
   }
 
-  // ✓ proceed
-  await deliverToWhatsapp(text);
+  await deliverMessage(text);
+  return { ok: true };
 }`}
           />
-
           <CodeBlock
-            label="PipelineResult"
-            code={`// Allowed
-{
-  allowed: true
-}
-
-// Blocked
-{
-  allowed: false
-}`}
+            label="RunResult"
+            code={`type RunResult = {
+  allowed: boolean;
+  token?: string;   // cached for about 5 minutes
+  receipt?: string; // present in Ed25519 challenge mode
+};`}
           />
         </Section>
 
-        {/* MCP example */}
-        <Section tag="05" title="MCP server example">
-          <InfoBox>
-            When <code style={mono}>@modelcontextprotocol/sdk</code> is installed, platform is automatically set to <span style={{ color: 'var(--accent)' }}>'mcp'</span> — no config needed.
-          </InfoBox>
+        <Section tag="05" title="MCP server pattern">
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+            Put the check at the edge of each tool handler. If Zero blocks the runtime, return a normal tool response and skip the side effect.
+          </p>
           <CodeBlock
             label="mcp-server.ts"
-            code={`import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { ZeroGateSDK } from '@zero-gate/sdk';
+            code={`import { ZeroGateSDK } from '@zero-gate/sdk';
 
 const zero = new ZeroGateSDK();
-// platform = 'mcp' (auto), URL = production (auto)
 
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const result = await zero.run();
-  // action = MCP tool name (auto-detected)
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const auth = await zero.run();
 
-  if (!result.allowed) {
-    return { content: [{ type: 'text', text: 'Blocked by Zero Gate' }] };
+  if (!auth.allowed) {
+    return {
+      content: [{ type: 'text', text: 'Blocked by Zero identity check.' }],
+    };
   }
 
-  // execute tool...
+  return executeTool(request.params);
 });`}
           />
         </Section>
 
-        {/* Security */}
+        <Section tag="06" title="Stronger keypair mode">
+          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+            If you do not want a shared HMAC secret in the runtime, register an Ed25519 public key and run the SDK with the private key. The private key never leaves the agent process; the backend verifies a signed one-time challenge.
+          </p>
+          <CodeBlock
+            label="env"
+            code={`ZERO_AGENT_ID=0f6f7f64-8c7f-4a8f-bcf1-8d33d624f2a1
+ZERO_PRIVATE_KEY=64_hex_chars
+
+# Optional post-quantum companion key
+ZERO_PRIVATE_KEY_PQC=...`}
+          />
+          <InfoBox>
+            Challenge mode uses <code style={mono}>/api/agent-auth/challenge</code> and <code style={mono}>/api/agent-auth/verify</code>. Successful verification returns a short-lived access token and, on fresh auth, a signed receipt.
+          </InfoBox>
+        </Section>
+
         <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--z-border)', borderRadius: 12, padding: '22px 26px', marginBottom: 48 }}>
-          <p style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Security</p>
-          <ul style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 2, paddingLeft: 18, margin: 0 }}>
-            <li>API key validation happens over enforced HTTPS.</li>
-            <li><code style={mono}>userHash</code> + <code style={mono}>apiKey</code> are cross-validated server-side — a leaked key alone is useless.</li>
-            <li>Plain HTTP requests are rejected by the SDK transport.</li>
-            <li>Every allowed <code style={mono}>run()</code> call is logged by the platform API.</li>
-          </ul>
+          <p style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Security notes</p>
+          <BulletList
+            items={[
+              <>The HMAC secret is never sent directly. The SDK sends a timestamp, nonce, action, platform, and signature.</>,
+              <>Nonces are single-use and timestamps outside the allowed clock window are rejected.</>,
+              <>Agents are platform-bound unless they are registered for <code style={mono}>all</code>.</>,
+              <>Disable an agent from the dashboard to block future validations. Existing SDK tokens expire shortly after.</>,
+              <>Call Zero before irreversible work, not after it. The audit trail is most useful at the action boundary.</>,
+            ]}
+          />
         </div>
 
-        {/* CTA */}
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 20 }}>Ready to add identity to your agents?</p>
+          <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 20 }}>Ship agents that can answer for what they do.</p>
           <Link href="/login" style={{ ...mono, fontSize: 13, fontWeight: 600, padding: '12px 28px', borderRadius: 8, background: 'var(--accent)', color: '#050505', textDecoration: 'none' }}>
-            Create your account →
+            Create your first agent -&gt;
           </Link>
         </div>
-
-      </div>
+      </main>
     </div>
   );
 }

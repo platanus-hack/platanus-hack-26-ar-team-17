@@ -1,0 +1,27 @@
+{
+  "name": "@zero-gate/cli",
+  "version": "0.1.0",
+  "description": "Zero Gate CLI — provision agents and wire up the SDK from your terminal.",
+  "bin": {
+    "zero": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}
