@@ -17,10 +17,10 @@ export default function AlertsPage() {
   }, [token]);
 
   return (
-    <div style={{ padding: '40px 48px' }}>
+    <div style={{ padding: '40px 48px', maxWidth: 980, margin: '0 auto' }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 500, letterSpacing: '-0.02em', margin: '0 0 4px' }}>Alerts</h1>
-        <p style={{ ...mono, fontSize: 12, color: '#5a5a5a', margin: 0 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.03em', margin: '0 0 8px', fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' }}>Alerts</h1>
+        <p style={{ ...mono, fontSize: 15, color: 'var(--text-muted)', margin: 0 }}>
           Actions blocked by global rules — {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
         </p>
       </div>
