@@ -36,6 +36,19 @@ export default function Home() {
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Link
+            href="/demo"
+            style={{
+              ...mono,
+              fontSize: 12,
+              color: '#d8d8d8',
+              textDecoration: 'none',
+              padding: '8px 14px',
+              borderRadius: 6,
+            }}
+          >
+            Demo
+          </Link>
+          <Link
             href="/docs"
             style={{
               ...mono,
