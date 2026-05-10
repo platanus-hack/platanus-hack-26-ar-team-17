@@ -60,41 +60,36 @@ export default function KeysPage() {
   const activeKeys = keys.filter(k => k.status === 'ACTIVE');
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: 980 }}>
+    <div style={{ padding: '40px 48px', maxWidth: 980, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', margin: '0 0 4px', fontFamily: 'var(--font-grotesk-var), sans-serif' }}>
+          <h1 style={{ fontSize: 32, fontWeight: 600, letterSpacing: '-0.03em', margin: '0 0 8px', fontFamily: 'var(--font-grotesk-var), sans-serif' }}>
             API Keys
           </h1>
-          <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+          <p style={{ ...mono, fontSize: 15, color: 'var(--text-muted)', margin: 0 }}>
             {activeKeys.length} active — manage individual keys from each agent&apos;s page
           </p>
         </div>
         <Link
           href="/agents"
-          style={{
-            ...mono, fontSize: 12, padding: '9px 16px', borderRadius: 7,
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-            color: 'var(--text-dim)', textDecoration: 'none', transition: 'all 120ms ease',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text)'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+          className="btn btn-secondary"
+          style={{ ...mono, textDecoration: 'none' }}
         >
-          Manage agents →
+          Manage agents
         </Link>
       </div>
 
       {loading ? (
-        <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center', paddingTop: 60 }}>loading keys…</p>
+        <p style={{ ...mono, fontSize: 15, color: 'var(--text-faint)', textAlign: 'center', paddingTop: 60 }}>loading keys…</p>
       ) : keys.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 80 }}>
-          <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.15 }}>⬡</div>
-          <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>No keys yet</p>
-          <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 50, marginBottom: 20, opacity: 0.15 }}>⬡</div>
+          <p style={{ fontSize: 21, fontWeight: 500, marginBottom: 12 }}>No keys yet</p>
+          <p style={{ ...mono, fontSize: 15, color: 'var(--text-muted)' }}>
             Create an agent first — its key will appear here
           </p>
-          <Link href="/agents" className="btn btn-primary" style={{ ...mono, fontSize: 12, marginTop: 18, display: 'inline-block' }}>
-            Go to Agents →
+          <Link href="/agents" className="btn btn-primary" style={{ ...mono, marginTop: 24, display: 'inline-flex', textDecoration: 'none' }}>
+            Go to Agents
           </Link>
         </div>
       ) : (
@@ -119,33 +114,33 @@ export default function KeysPage() {
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 <div>
-                  <code style={{ ...mono, fontSize: 13, color: 'var(--text)' }}>{key.prefix}…</code>
-                  <span style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', marginLeft: 10 }}>{key.name}</span>
+                  <code style={{ ...mono, fontSize: 14.5, color: 'var(--text)' }}>{key.prefix}…</code>
+                  <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', marginLeft: 12 }}>{key.name}</span>
                 </div>
 
                 {key.agent_id ? (
                   <Link
                     href={`/agents/${key.agent_id}`}
-                    style={{ ...mono, fontSize: 12, color: 'var(--text-dim)', textDecoration: 'none' }}
+                    style={{ ...mono, fontSize: 13.5, color: 'var(--text-dim)', textDecoration: 'none' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--accent)')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
                   >
                     {key.agent_name ?? '—'}
                   </Link>
                 ) : (
-                  <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)' }}>—</span>
+                  <span style={{ ...mono, fontSize: 13.5, color: 'var(--text-faint)' }}>—</span>
                 )}
 
                 <PlatformIcon platform={key.platform ?? 'custom'} />
                 <StatusPill status={key.status} />
 
-                <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)' }}>
                   {new Date(key.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </span>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   {key.status === 'ACTIVE' && (
-                    <button onClick={() => handleRevoke(key.id)} className="btn btn-danger" style={{ ...mono, fontSize: 10, padding: '4px 10px' }}>
+                    <button onClick={() => handleRevoke(key.id)} className="btn btn-danger" style={{ ...mono, fontSize: 12, padding: '7px 14px' }}>
                       Revoke
                     </button>
                   )}

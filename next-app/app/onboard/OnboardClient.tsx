@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { MeshGradient } from '@paper-design/shaders-react';
 import { Check, Loader2, ShieldCheck, KeyRound, UserRound, ArrowRight, Copy, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { authApi, kycApi, agentsApi } from '@/lib/api';
+import { kycApi, agentsApi } from '@/lib/api';
+import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
@@ -31,7 +32,7 @@ const PLATFORMS = [
 export default function OnboardClient() {
   const router = useRouter();
   const search = useSearchParams();
-  const { token, kycStatus, login, setKycStatus } = useAuth();
+  const { token, kycStatus, setKycStatus } = useAuth();
 
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState<StepId>(1);
@@ -90,11 +91,7 @@ export default function OnboardClient() {
                 animation: `fluid-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both`,
               }}
             >
-              {step === 1 && (
-                <Step1Account
-                  onDone={(t, _u, k) => { login(t, _u, k); go(k === 'VERIFIED' ? 3 : 2); }}
-                />
-              )}
+              {step === 1 && <Step1Google />}
               {step === 2 && (
                 <Step2Identity
                   token={token}
@@ -257,56 +254,138 @@ function FluidStepper({ step, onJump }: { step: StepId; onJump: (id: StepId) => 
   );
 }
 
-/* ────────────────────────── STEP 1: ACCOUNT ────────────────────────── */
+/* ────────────────────────── STEP 1: GOOGLE SIGN-UP ────────────────────────── */
 
-function Step1Account({ onDone }: { onDone: (token: string, userId: string, kyc: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED') => void }) {
-  const [fullName, setFullName] = useState('');
-  const [company, setCompany] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+function GoogleGlyph() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true" fill="currentColor">
+      <path d="M43.6 20.5H42V20H24v8h11.3c-1.7 4.7-6.2 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  );
+}
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setError('');
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    setLoading(true);
+function Step1Google() {
+  const supabase = getSupabaseBrowser();
+  const [status, setStatus] = useState<'idle' | 'authenticating' | 'starting' | 'redirecting'>('idle');
+  const [error, setError] = useState<string | null>(null);
+  const triggered = useRef(false);
+
+  const startKyc = async (accessToken: string) => {
+    if (triggered.current) return;
+    triggered.current = true;
+    setStatus('starting');
+    setError(null);
     try {
-      const { token, userId, kycStatus } = await authApi.register(email, password, fullName, company);
-      onDone(token, userId, kycStatus);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Registration failed';
-      setError(msg === 'email_taken' ? 'This email is already registered' : msg);
-      setLoading(false);
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ supabase_access_token: accessToken }),
+      });
+      const body = await r.json();
+      if (r.status === 429) { setError('Too many attempts. Please wait a moment.'); setStatus('idle'); triggered.current = false; return; }
+      if (!r.ok || !body.verification_url) { setError('Sign-up failed.'); setStatus('idle'); triggered.current = false; return; }
+      setStatus('redirecting');
+      window.location.href = body.verification_url;
+    } catch {
+      setError('Network error.'); setStatus('idle'); triggered.current = false;
     }
-  }
+  };
+
+  // If supabase already has a session (e.g. after Google redirect), continue automatically.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.access_token) startKyc(data.session.access_token);
+    });
+    const sub = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.access_token) startKyc(session.access_token);
+    });
+    return () => sub.data.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
+  const signInWithGoogle = async () => {
+    setError(null);
+    setStatus('authenticating');
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/onboard`,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+  };
+
+  const busy = status !== 'idle';
 
   return (
-    <Card>
-      <CardHeader title="Create your account" sub="Takes about 30 seconds. No credit card." />
-      <form onSubmit={submit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Full name">
-            <input className="z-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Doe" required autoFocus />
-          </Field>
-          <Field label="Company" optional>
-            <input className="z-input" value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme" />
-          </Field>
+    <Card padding="72px 36px 76px">
+      <CardHeader
+        title="Create your account"
+        sub="One click with Google. We'll verify your identity right after."
+        marginBottom={76}
+      />
+
+      <button
+        type="button"
+        onClick={signInWithGoogle}
+        disabled={busy}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          width: '100%', padding: '15px 24px', borderRadius: 999,
+          background: 'rgba(200,245,66,0.1)',
+          border: '1px solid rgba(200,245,66,0.32)',
+          color: 'var(--accent)', fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em',
+          cursor: busy ? 'not-allowed' : 'pointer',
+          opacity: busy ? 0.6 : 1,
+          backdropFilter: 'blur(14px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(14px) saturate(140%)',
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,0.1),' +
+            '0 0 0 1px rgba(200,245,66,0.05),' +
+            '0 14px 36px -10px rgba(200,245,66,0.22)',
+          transition: 'all 200ms cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+        onMouseEnter={e => { if (!busy) {
+          e.currentTarget.style.background = 'rgba(200,245,66,0.18)';
+          e.currentTarget.style.borderColor = 'rgba(200,245,66,0.5)';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow =
+            'inset 0 1px 0 rgba(255,255,255,0.14),' +
+            '0 0 0 1px rgba(200,245,66,0.1),' +
+            '0 18px 44px -10px rgba(200,245,66,0.36)';
+        }}}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'rgba(200,245,66,0.1)';
+          e.currentTarget.style.borderColor = 'rgba(200,245,66,0.32)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow =
+            'inset 0 1px 0 rgba(255,255,255,0.1),' +
+            '0 0 0 1px rgba(200,245,66,0.05),' +
+            '0 14px 36px -10px rgba(200,245,66,0.22)';
+        }}
+      >
+        <GoogleGlyph />
+        Continue with Google
+      </button>
+
+      {status !== 'idle' && (
+        <div className="fade-in" style={{
+          ...mono, fontSize: 13, color: 'var(--text-dim)',
+          marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}>
+          <Loader2 size={14} className="spin" />
+          {status === 'authenticating' && 'opening google…'}
+          {status === 'starting' && 'preparing identity verification…'}
+          {status === 'redirecting' && 'redirecting…'}
         </div>
-        <Field label="Email">
-          <input className="z-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
-        </Field>
-        <Field label="Password">
-          <input className="z-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" required />
-        </Field>
+      )}
 
-        {error && <ErrorRow message={error} />}
-
-        <PrimaryButton loading={loading} loadingText="Creating account…">
-          Continue <ArrowRight size={14} strokeWidth={2.5} />
-        </PrimaryButton>
-      </form>
+      {error && (
+        <div className="form-error fade-in" style={{ marginTop: 16, alignItems: 'center' }}>
+          <AlertCircle size={13} /> {error}
+        </div>
+      )}
     </Card>
   );
 }
@@ -616,7 +695,7 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
 
 /* ────────────────────────── PRIMITIVES ────────────────────────── */
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({ children, padding = '44px 36px 40px' }: { children: React.ReactNode; padding?: string }) {
   return (
     <div
       className="onboard-glass"
@@ -625,7 +704,7 @@ function Card({ children }: { children: React.ReactNode }) {
         background: 'linear-gradient(180deg, rgba(8,10,6,0.78) 0%, rgba(5,5,5,0.72) 100%)',
         border: '1px solid rgba(255,255,255,0.08)',
         borderRadius: 28,
-        padding: 36,
+        padding,
         backdropFilter: 'blur(40px) saturate(160%)',
         WebkitBackdropFilter: 'blur(40px) saturate(160%)',
         boxShadow: [
@@ -655,11 +734,11 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CardHeader({ title, sub }: { title: string; sub: string }) {
+function CardHeader({ title, sub, marginBottom = 24 }: { title: string; sub: string; marginBottom?: number }) {
   return (
-    <div style={{ marginBottom: 24 }}>
+    <div style={{ marginBottom }}>
       <h2 style={{ ...grotesk, fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', margin: 0, color: 'var(--text)' }}>{title}</h2>
-      <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0' }}>{sub}</p>
+      <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', margin: '18px 0 0' }}>{sub}</p>
     </div>
   );
 }
