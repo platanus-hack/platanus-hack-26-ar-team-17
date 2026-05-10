@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { agentsApi, keysApi, auditApi, Agent, AgentKeySummary, AuditLog } from '@/lib/api';
 
@@ -16,10 +17,11 @@ const RESULT_COLORS: Record<string, string> = {
   BLOCKED_REVOKED: '#8a8a8a',
 };
 
-function CopyBox({ label, value, hint, onDismiss, accent }: {
-  label: string; value: string; hint?: string; onDismiss?: () => void; accent?: 'lime' | 'plain';
+function CopyBox({ label, value, hint, onDismiss, accent, mask }: {
+  label: string; value: string; hint?: string; onDismiss?: () => void; accent?: 'lime' | 'plain'; mask?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [hidden, setHidden] = useState(!!mask);
   function copy() {
     navigator.clipboard.writeText(value);
     setCopied(true);
@@ -29,6 +31,7 @@ function CopyBox({ label, value, hint, onDismiss, accent }: {
     ? { background: 'rgba(255,255,255,0.02)', border: '1px solid var(--z-border)', borderRadius: 11, padding: '18px 20px', marginBottom: 0 }
     : undefined;
   const labelColor = accent === 'plain' ? 'var(--text-dim)' : 'var(--accent)';
+  const display = mask && hidden ? '•'.repeat(Math.min(Math.max(value.length, 12), 36)) : value;
   return (
     <div className={accent === 'plain' ? '' : 'key-reveal fade-in'} style={bg}>
       <p style={{ ...mono, fontSize: 13, color: labelColor, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -41,19 +44,41 @@ function CopyBox({ label, value, hint, onDismiss, accent }: {
           background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-strong)',
           padding: '12px 16px', borderRadius: 999, flex: 1,
           wordBreak: 'break-all', lineHeight: 1.6,
-        }}>{value}</code>
+        }}>{display}</code>
+        {mask && (
+          <button
+            onClick={() => setHidden(h => !h)}
+            aria-label={hidden ? 'Show key' : 'Hide key'}
+            style={{
+              padding: 12, borderRadius: 999, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'var(--text-dim)',
+              transition: 'all 120ms ease', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          >
+            {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
+        )}
         <button
           onClick={copy}
+          aria-label={copied ? 'Copied' : 'Copy'}
           style={{
-            ...mono, fontSize: 13, padding: '12px 18px', borderRadius: 999, cursor: 'pointer',
+            padding: 12, borderRadius: 999, cursor: 'pointer',
             background: copied ? 'rgba(200,245,66,0.12)' : 'rgba(255,255,255,0.05)',
             border: `1px solid ${copied ? 'rgba(200,245,66,0.3)' : 'rgba(255,255,255,0.1)'}`,
             color: copied ? 'var(--accent)' : 'var(--text-dim)',
-            transition: 'all 120ms ease', whiteSpace: 'nowrap', flexShrink: 0,
+            transition: 'all 120ms ease', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
           }}
-        >{copied ? 'copied' : 'copy'}</button>
+        >
+          {copied ? <Check size={16} /> : <Copy size={16} />}
+        </button>
       </div>
       {onDismiss && (
         <button onClick={onDismiss} style={{
@@ -257,7 +282,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       {/* Newly rotated key reveal */}
       {revealedKey && (
         <div style={{ marginBottom: 28 }}>
-          <CopyBox label="Save this key — shown only once" value={revealedKey} onDismiss={() => setRevealedKey(null)} />
+          <CopyBox label="New API key" value={revealedKey} mask onDismiss={() => setRevealedKey(null)} />
         </div>
       )}
 
@@ -341,7 +366,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                   borderBottom: i < logs.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                 }}
               >
-                <span style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)' }}>
+                <span style={{ ...mono, fontSize: 12.5, color: '#fff' }}>
                   {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span style={{ ...mono, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

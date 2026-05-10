@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   agentsApi, kycApi, auditApi, keysApi,
@@ -103,27 +104,41 @@ function InlineCopy({ value, mask }: { value: string; mask?: boolean }) {
         wordBreak: 'break-all', lineHeight: 1.5,
       }}>{display}</code>
       {mask && (
-        <button onClick={() => setRevealed(r => !r)} className="btn btn-secondary"
-          style={{ ...mono, fontSize: 12, padding: '8px 14px' }}>
-          {revealed ? 'hide' : 'reveal'}
+        <button
+          onClick={() => setRevealed(r => !r)}
+          aria-label={revealed ? 'Hide' : 'Reveal'}
+          style={{
+            padding: 10, borderRadius: 999, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'var(--text-dim)',
+            transition: 'all 120ms ease', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {revealed ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       )}
       <button
         onClick={copy}
+        aria-label={copied ? 'Copied' : 'Copy'}
         style={{
-          ...mono, fontSize: 13, padding: '10px 16px', borderRadius: 999, cursor: 'pointer',
+          padding: 10, borderRadius: 999, cursor: 'pointer',
           background: copied ? 'rgba(200,245,66,0.12)' : 'rgba(255,255,255,0.05)',
           border: `1px solid ${copied ? 'rgba(200,245,66,0.3)' : 'rgba(255,255,255,0.1)'}`,
           color: copied ? 'var(--accent)' : 'var(--text-dim)',
-          transition: 'all 120ms ease', whiteSpace: 'nowrap', flexShrink: 0,
+          transition: 'all 120ms ease', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
-      >{copied ? 'copied' : 'copy'}</button>
+      >
+        {copied ? <Check size={16} /> : <Copy size={16} />}
+      </button>
     </div>
   );
 }
 
-function CopyReveal({ label, value, hint, onDismiss }: {
-  label: string; value: string; hint?: string; onDismiss: () => void;
+function CopyReveal({ label, value, hint, onDismiss, mask }: {
+  label: string; value: string; hint?: string; onDismiss: () => void; mask?: boolean;
 }) {
   return (
     <div className="key-reveal fade-in" style={{ marginBottom: 28 }}>
@@ -131,7 +146,7 @@ function CopyReveal({ label, value, hint, onDismiss }: {
         <span>⬡</span> {label}
         {hint && <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>· {hint}</span>}
       </p>
-      <InlineCopy value={value} />
+      <InlineCopy value={value} mask={mask} />
       <button onClick={onDismiss} style={{
         ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 12,
         background: 'none', border: 'none', cursor: 'pointer', padding: 0,
@@ -203,8 +218,8 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
     }}>
       <div style={{ display: 'flex', gap: 28, marginBottom: 14, flexWrap: 'wrap' }}>
         <Stat label="14-day total" value={total.toLocaleString()} />
-        <Stat label="Success" value={successTotal.toLocaleString()} color="var(--accent)" />
-        <Stat label="Blocked" value={blockedTotal.toLocaleString()} color="#ff5c5c" />
+        <Stat label="Success" value={successTotal.toLocaleString()} />
+        <Stat label="Blocked" value={blockedTotal.toLocaleString()} />
         <Stat label="Success rate" value={total ? `${Math.round((successTotal / total) * 100)}%` : '—'} />
       </div>
 
@@ -504,7 +519,7 @@ export default function DashboardPage() {
 
       {/* Reveal banners */}
       {reveal?.kind === 'key' && (
-        <CopyReveal label="Save this key — shown only once" value={reveal.plainKey} onDismiss={() => setReveal(null)} />
+        <CopyReveal label="API key" value={reveal.plainKey} mask onDismiss={() => setReveal(null)} />
       )}
       {reveal?.kind === 'url' && (
         <CopyReveal label="MCP endpoint" hint="point your MCP client at this URL" value={reveal.url} onDismiss={() => setReveal(null)} />
@@ -772,7 +787,7 @@ export default function DashboardPage() {
                     borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
                   }}
                 >
-                  <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-muted)' }}>
+                  <span style={{ ...mono, fontSize: 11.5, color: '#fff' }}>
                     {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span style={{ ...mono, fontSize: 12.5, color: 'var(--text)' }}>{log.action}</span>
