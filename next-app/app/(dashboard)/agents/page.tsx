@@ -540,12 +540,6 @@ export default function DashboardPage() {
               <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api secret (HMAC)</p>
               <InlineCopy value={reveal.apiSecret} mask />
             </div>
-            {reveal.plainKey && (
-              <div>
-                <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api key (legacy)</p>
-                <InlineCopy value={reveal.plainKey} mask />
-              </div>
-            )}
           </div>
           <button onClick={() => setReveal(null)} style={{
             ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 14,
@@ -759,14 +753,6 @@ export default function DashboardPage() {
                         </div>
                       )}
 
-                      {!isMcp && activeKey?.plain_key && (
-                        <div>
-                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                            api key (legacy) — {activeKey.name}
-                          </p>
-                          <InlineCopy value={activeKey.plain_key} mask />
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
