@@ -64,7 +64,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     );
   }
   if (attempt.decision === 'APPROVED') {
-    await setCookieAndRedirect(attempt.user_id, '/dashboard');
+    await setCookieAndRedirect(attempt.user_id, '/auth/sync-session');
   }
   if (attempt.decision === 'REJECTED') {
     return <main className="p-8"><h1>Verification failed</h1><p>The face check did not match. Please try again.</p></main>;
@@ -98,7 +98,21 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
         if ('${intent}' === 'register' && supabaseToken) params.set('supabase_access_token', supabaseToken);
         try {
           const r = await fetch('/api/auth/finalize?' + params.toString(), { credentials: 'include' });
-          if (r.status === 200) { window.location.href = '/dashboard'; clearInterval(interval); return; }
+          if (r.status === 200) {
+            const body = await r.json().catch(() => ({}));
+            if (body.token && body.userId) {
+              localStorage.setItem('zero_auth', JSON.stringify({
+                token: body.token,
+                userId: body.userId,
+                kycStatus: body.kycStatus ?? null,
+                displayName: body.displayName ?? null,
+              }));
+            }
+            const next = body.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+            window.location.href = next;
+            clearInterval(interval);
+            return;
+          }
           if (r.status === 410) { document.body.innerHTML = '<main class="p-8"><h1>Verification failed</h1><p>Please try again.</p></main>'; clearInterval(interval); return; }
         } catch (e) {}
         if (attempts >= maxAttempts) { clearInterval(interval); }

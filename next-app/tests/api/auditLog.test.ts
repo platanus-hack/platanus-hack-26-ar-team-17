@@ -21,26 +21,10 @@ function mockAuth() {
 beforeEach(() => {
   jest.clearAllMocks();
   getInternalUserId.mockResolvedValue(null);
-})
+});
 
 function mockQuery(returnData: unknown) {
-  // A chainable query object that resolves at any point
   const terminal = { data: returnData, error: null };
-  const chainable: Record<string, jest.Mock> = {};
-  const makeMock = (): jest.Mock =>
-    jest.fn().mockImplementation(() => {
-      // Return a new chainable object so callers can keep chaining
-      return new Proxy(terminal, {
-        get(_target, prop) {
-          if (prop === 'then') {
-            // Act as a resolved promise
-            return (resolve: (v: unknown) => void) => resolve(terminal);
-          }
-          return makeMock();
-        },
-      });
-    });
-
   return {
     select: jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
@@ -77,6 +61,7 @@ describe('GET /api/audit-log', () => {
   });
 
   it('returns 401 without token', async () => {
+    getInternalUserId.mockResolvedValueOnce(null);
     const res = await getAuditLog(new NextRequest('http://localhost/api/audit-log'));
     expect(res.status).toBe(401);
   });

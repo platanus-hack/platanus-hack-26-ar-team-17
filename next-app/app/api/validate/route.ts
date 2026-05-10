@@ -7,26 +7,39 @@ import { issueToken } from '@/lib/services/token.service';
 import { writeLog } from '@/lib/services/auditLog.service';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { config } from '@/lib/config';
+import { checkGlobalRules } from '@/lib/services/rules.service';
+import { verifyScope } from '@/lib/services/scope.service';
 
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
-// HMAC signed request — new SDK (ZERO_AGENT_ID + ZERO_API_SECRET)
 const hmacSchema = z.object({
-  agentId:   z.string().uuid(),
+  agentId: z.string().uuid(),
   timestamp: z.string().min(1),
-  nonce:     z.string().min(16),
-  action:    z.string().min(1),
-  platform:  z.string().min(1),
+  nonce: z.string().min(16),
+  action: z.string().min(1),
+  platform: z.string().min(1),
   signature: z.string().min(1),
 });
 
-// API key + user hash — legacy SDK v1 (ZERO_API_KEY + ZERO_USER_HASH)
 const legacySchema = z.object({
-  token:    z.string().min(1),
-  hash:     z.string().min(1),
-  action:   z.string().min(1),
+  token: z.string().min(1),
+  hash: z.string().min(1),
+  action: z.string().min(1),
   platform: z.string().min(1),
+  text: z.string().optional().default(''),
 });
+
+type KeyRow = {
+  id: string;
+  agent_id: string;
+  status: string;
+  scope: string[] | null;
+  agents: {
+    user_id: string;
+    status: string;
+    users: { hash: string };
+  };
+};
 
 let lastCleanup = 0;
 
@@ -37,18 +50,17 @@ export async function POST(req: NextRequest) {
   }
 
   let body: unknown;
-  try { body = await req.json(); }
-  catch { return NextResponse.json({ allowed: false }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ allowed: false }, { status: 200 });
+  }
 
   if (body && typeof body === 'object' && 'agentId' in body) {
     return handleHmac(body);
   }
   return handleLegacy(body);
 }
-
-// ---------------------------------------------------------------------------
-// HMAC path (new SDK)
-// ---------------------------------------------------------------------------
 
 async function handleHmac(body: unknown): Promise<NextResponse> {
   const parsed = hmacSchema.safeParse(body);
@@ -108,46 +120,87 @@ async function handleHmac(body: unknown): Promise<NextResponse> {
   return NextResponse.json({ allowed: true, token, expiresAt: tokenExpiresAt });
 }
 
-// ---------------------------------------------------------------------------
-// Legacy path (old SDK v1)
-// ---------------------------------------------------------------------------
-
 async function handleLegacy(body: unknown): Promise<NextResponse> {
   const parsed = legacySchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ allowed: false });
+  if (!parsed.success) return NextResponse.json({ allowed: false }, { status: 200 });
 
-  const { token, hash, action, platform } = parsed.data;
+  const { token, hash, action, platform, text } = parsed.data;
   const keyHash = hashApiKey(token);
 
   const { data } = await supabase
     .from('api_keys')
-    .select('id, agent_id, status, agents!inner(user_id, status, users!inner(hash))')
+    .select(
+      'id, agent_id, status, scope, agents!inner(user_id, status, users!inner(hash))',
+    )
     .eq('key_hash', keyHash)
-    .single<{
-      id: string;
-      agent_id: string;
-      status: string;
-      agents: { user_id: string; status: string; users: { hash: string } };
-    }>();
+    .single<KeyRow>();
 
-  const allowed =
-    !!data &&
+  const baseLog = {
+    action,
+    platform,
+    userInput: text,
+  };
+
+  if (!data) {
+    void writeLog({
+      agentId: null,
+      apiKeyId: null,
+      userId: null,
+      ...baseLog,
+      result: 'BLOCKED_INVALID_KEY',
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
+  }
+
+  const keyOk =
     data.status === 'ACTIVE' &&
     data.agents?.status === 'ACTIVE' &&
     data.agents?.users?.hash === hash;
 
-  if (allowed && data) {
+  if (!keyOk) {
     void writeLog({
-      agentId: data.agent_id, apiKeyId: data.id, userId: data.agents.user_id,
-      action, platform, result: 'SUCCESS',
-    });
-  } else {
-    void writeLog({
-      agentId: data?.agent_id ?? null, apiKeyId: data?.id ?? null,
-      userId: data?.agents?.user_id ?? null,
-      action, platform, result: 'BLOCKED_INVALID_KEY',
-    });
+      agentId: data.agent_id,
+      apiKeyId: data.id,
+      userId: data.agents.user_id,
+      ...baseLog,
+      result: 'BLOCKED_INVALID_KEY',
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
   }
 
-  return NextResponse.json({ allowed });
+  const scope = Array.isArray(data.scope) ? data.scope : [];
+
+  if (!verifyScope(action, scope)) {
+    void writeLog({
+      agentId: data.agent_id,
+      apiKeyId: data.id,
+      userId: data.agents.user_id,
+      ...baseLog,
+      result: 'BLOCKED_SCOPE',
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
+  }
+
+  const ruleCheck = await checkGlobalRules({ action, text });
+  if (ruleCheck.blocked) {
+    void writeLog({
+      agentId: data.agent_id,
+      apiKeyId: data.id,
+      userId: data.agents.user_id,
+      ...baseLog,
+      result: 'BLOCKED_RULE',
+      ruleViolated: ruleCheck.ruleViolated,
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
+  }
+
+  void writeLog({
+    agentId: data.agent_id,
+    apiKeyId: data.id,
+    userId: data.agents.user_id,
+    ...baseLog,
+    result: 'SUCCESS',
+  }).catch(() => {});
+
+  return NextResponse.json({ allowed: true });
 }

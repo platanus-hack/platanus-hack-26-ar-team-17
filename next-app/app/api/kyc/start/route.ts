@@ -14,13 +14,13 @@ function siteUrl(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data: user } = await supabase
     .from('users')
     .select('id, kyc_status, didit_session_url')
-    .eq('id', userId)
+    .eq('auth_user_id', userId)
     .single();
 
   if (!user) return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       didit_session_url: session.url,
       kyc_status: 'IN_REVIEW',
     })
-    .eq('id', userId);
+    .eq('id', user.id);
 
   return NextResponse.json({ url: session.url, session_id: session.session_id }, { status: 201 });
 }

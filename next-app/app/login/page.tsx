@@ -8,6 +8,8 @@ export default function LoginPage() {
   const [status, setStatus] = useState<'idle' | 'authenticating' | 'starting' | 'redirecting'>('idle');
   const [error, setError] = useState<string | null>(null);
   const triggered = useRef(false);
+  /** Tras pulsar Google, el retorno OAuth a veces solo dispara `INITIAL_SESSION`, no `SIGNED_IN`. */
+  const oauthFlowPending = useRef(false);
 
   const startBiometricAuth = async (accessToken: string) => {
     if (triggered.current) return;
@@ -22,24 +24,29 @@ export default function LoginPage() {
         body: JSON.stringify({ supabase_access_token: accessToken }),
       });
       const body = await r.json();
-      if (r.status === 404) { setError('No account yet. Please register first.'); setStatus('idle'); triggered.current = false; return; }
-      if (r.status === 409) { setError('Your verification is still being processed.'); setStatus('idle'); triggered.current = false; return; }
-      if (r.status === 429) { setError('Too many attempts. Please wait.'); setStatus('idle'); triggered.current = false; return; }
-      if (!r.ok || !body.verification_url) { setError('Login failed.'); setStatus('idle'); triggered.current = false; return; }
+      if (r.status === 404) { setError('No account yet. Please register first.'); setStatus('idle'); triggered.current = false; oauthFlowPending.current = false; return; }
+      if (r.status === 409) { setError('Your verification is still being processed.'); setStatus('idle'); triggered.current = false; oauthFlowPending.current = false; return; }
+      if (r.status === 429) { setError('Too many attempts. Please wait.'); setStatus('idle'); triggered.current = false; oauthFlowPending.current = false; return; }
+      if (!r.ok || !body.verification_url) { setError('Login failed.'); setStatus('idle'); triggered.current = false; oauthFlowPending.current = false; return; }
       setStatus('redirecting');
       window.location.href = body.verification_url;
     } catch {
-      setError('Network error.'); setStatus('idle'); triggered.current = false;
+      setError('Network error.'); setStatus('idle'); triggered.current = false; oauthFlowPending.current = false;
     }
   };
 
   useEffect(() => {
-    // Only auto-trigger after a fresh Google sign-in (button click → OAuth round-trip).
-    // We intentionally do NOT auto-trigger from getSession(); a stale Supabase session
-    // alone shouldn't bypass the button — the user has to actively choose to sign in.
     const sub = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.access_token) {
-        startBiometricAuth(session.access_token);
+      const access = session?.access_token;
+      if (!access) return;
+      if (event === 'SIGNED_IN') {
+        startBiometricAuth(access);
+        oauthFlowPending.current = false;
+        return;
+      }
+      if (event === 'INITIAL_SESSION' && oauthFlowPending.current) {
+        startBiometricAuth(access);
+        oauthFlowPending.current = false;
       }
     });
     return () => sub.data.subscription.unsubscribe();
@@ -47,14 +54,20 @@ export default function LoginPage() {
   }, [supabase]);
 
   const signInWithGoogle = async () => {
+    oauthFlowPending.current = true;
     setStatus('authenticating');
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/login`,
-        queryParams: { prompt: 'select_account' },
-      },
-    });
+    try {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/login`,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+    } catch {
+      oauthFlowPending.current = false;
+      setStatus('idle');
+    }
   };
 
   return (

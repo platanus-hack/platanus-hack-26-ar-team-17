@@ -3,13 +3,13 @@ import { getAuthUserId } from '@/lib/auth';
 import { supabase } from '@/lib/db/supabase';
 
 export async function GET(req: NextRequest) {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { data } = await supabase
     .from('users')
     .select('kyc_status, kyc_verified_at, didit_session_url')
-    .eq('id', userId)
+    .eq('auth_user_id', userId)
     .single();
 
   if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 });

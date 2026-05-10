@@ -21,6 +21,7 @@ export interface ApiKey {
   name: string;
   platform: string;
   prefix: string;
+  scope?: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at?: string | null;
@@ -42,8 +43,8 @@ export interface AuditLog {
   user_id?: string | null;
   action: string;
   platform: string;
-  result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   user_input?: string | null;
+  result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   rule_violated?: string | null;
   created_at: string;
 }

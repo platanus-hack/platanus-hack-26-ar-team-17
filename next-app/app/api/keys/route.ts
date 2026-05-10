@@ -56,7 +56,6 @@ export async function GET(req: NextRequest) {
   );
 }
 
-// Rotation: add a new key under an existing agent the caller owns.
 export async function POST(req: NextRequest) {
   const me = await getInternalUserId(req);
   if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

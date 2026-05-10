@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cli:create-agent": "node cli/create-agent.mjs"
   },
   "dependencies": {
     "@paper-design/shaders-react": "^0.0.76",

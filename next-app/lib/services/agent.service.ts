@@ -46,6 +46,15 @@ export async function listAgents(userId: string): Promise<Agent[]> {
   return (data ?? []) as Agent[];
 }
 
+export async function countAgentsForUser(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('agents')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function listAgentsWithMcpUrl(
   userId: string,
   userHash: string | null,
@@ -89,6 +98,8 @@ export async function createAgent(params: {
   name: string;
   type: AgentType;
   platform: string;
+  keyName?: string;
+  keyScope?: string[];
 }): Promise<{
   agent: Agent;
   key: { id: string; plainKey: string; prefix: string } | null;
@@ -115,10 +126,13 @@ export async function createAgent(params: {
 
   if (error || !agent) throw error ?? new Error('Failed to create agent');
 
-  // MCP agents don't need an API key — they auth via HMAC secret
   if (params.type === 'mcp') return { agent, key: null, apiSecret };
 
-  const key = await createApiKey({ agentId: agent.id, name: 'default' });
+  const key = await createApiKey({
+    agentId: agent.id,
+    name: params.keyName ?? 'default',
+    scope: params.keyScope ?? [],
+  });
   return { agent, key, apiSecret };
 }
 

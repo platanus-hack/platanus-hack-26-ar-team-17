@@ -34,14 +34,16 @@ export async function validateApiKeyAndHash(
 export async function createApiKey(params: {
   agentId: string;
   name: string;
+  scope?: string[];
 }): Promise<{ id: string; plainKey: string; prefix: string }> {
   const plainKey = generateApiKey();
   const keyHash = hashApiKey(plainKey);
   const prefix = getKeyPrefix(plainKey);
+  const scope = params.scope ?? [];
 
   const { data, error } = await supabase
     .from('api_keys')
-    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, prefix })
+    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, prefix, scope })
     .select()
     .single();
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getInternalUserId } from '@/lib/auth';
-import { createAgent, listAgentsWithMcpUrl, AgentType, getMcpUrl } from '@/lib/services/agent.service';
+import { createAgent, listAgentsWithMcpUrl, type AgentType, getMcpUrl } from '@/lib/services/agent.service';
 import { config } from '@/lib/config';
 
 const createBody = z.object({

@@ -7,6 +7,10 @@ jest.mock('@/lib/services/loginAttempt.service', () => ({
 }));
 jest.mock('@/lib/services/profile.service', () => ({
   getProfileByUserId: jest.fn(),
+  getSessionFieldsForAuthUser: jest.fn().mockResolvedValue({
+    kycStatus: 'VERIFIED',
+    displayName: 'Test User',
+  }),
 }));
 jest.mock('@/lib/services/token.service', () => ({
   issueUserToken: jest.fn().mockResolvedValue('mock.token'),
@@ -33,6 +37,10 @@ describe('GET /api/auth/finalize?intent=login', () => {
     const res = await finalize(makeReq('intent=login&session_id=s'));
     expect(res.status).toBe(200);
     expect(res.headers.get('set-cookie') ?? '').toMatch(new RegExp(`${APP_SESSION_COOKIE}=mock\\.token`));
+    const json = await res.json();
+    expect(json.token).toBe('mock.token');
+    expect(json.userId).toBe('u1');
+    expect(json.kycStatus).toBe('VERIFIED');
   });
 
   it('returns 410 when REJECTED', async () => {
