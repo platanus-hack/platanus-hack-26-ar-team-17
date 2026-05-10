@@ -103,7 +103,7 @@ export default function OnboardClient() {
               {step === 3 && (
                 <Step3FirstKey
                   token={token}
-                  onDone={() => router.push('/keys')}
+                  onDone={() => router.push('/agents')}
                 />
               )}
             </div>

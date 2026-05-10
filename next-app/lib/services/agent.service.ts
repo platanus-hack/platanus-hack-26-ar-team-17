@@ -23,6 +23,7 @@ export interface AgentKeySummary {
   id: string;
   name: string;
   prefix: string;
+  plain_key: string | null;
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at: string | null;
@@ -73,7 +74,7 @@ export async function getAgentWithKeys(
 
   const { data: keys } = await supabase
     .from('api_keys')
-    .select('id, name, prefix, status, created_at, revoked_at')
+    .select('id, name, prefix, plain_key, status, created_at, revoked_at')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: false });
 

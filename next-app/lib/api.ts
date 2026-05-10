@@ -21,6 +21,7 @@ export interface ApiKey {
   name: string;
   platform: string;
   prefix: string;
+  plain_key?: string | null;
   scope?: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
@@ -31,6 +32,7 @@ export interface AgentKeySummary {
   id: string;
   name: string;
   prefix: string;
+  plain_key?: string | null;
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at: string | null;

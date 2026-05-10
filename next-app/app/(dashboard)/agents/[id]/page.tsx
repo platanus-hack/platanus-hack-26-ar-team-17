@@ -263,18 +263,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Credentials / Endpoint */}
       <section style={{ marginBottom: 36 }}>
-        <SectionHeader
-          title={isMcp ? 'Endpoint' : 'Credentials'}
-          action={!isMcp && isActive ? (
-            <button
-              onClick={() => { setShowRotate(true); setRotateError(''); setRotateName(''); }}
-              className="btn btn-secondary"
-              style={mono}
-            >
-              Rotate key
-            </button>
-          ) : null}
-        />
+        <SectionHeader title={isMcp ? 'Endpoint' : 'Credentials'} />
 
         {isMcp ? (
           agent.mcp_url ? (

@@ -33,6 +33,7 @@ create table api_keys (
   agent_id uuid references agents(id) not null,
   name text not null,
   key_hash text unique not null,
+  plain_key text,
   prefix text not null,
   scope text[] not null default '{}',
   status key_status not null default 'ACTIVE',

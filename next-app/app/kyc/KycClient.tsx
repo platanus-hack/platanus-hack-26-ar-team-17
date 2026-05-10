@@ -55,7 +55,7 @@ export default function KycClient() {
 
   useEffect(() => {
     if (status === 'VERIFIED') {
-      setTimeout(() => router.push('/keys'), 1800);
+      setTimeout(() => router.push('/agents'), 1800);
     }
   }, [status]);
 
@@ -152,7 +152,7 @@ export default function KycClient() {
           {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {status === 'VERIFIED' && (
-              <button className="btn btn-primary" onClick={() => router.push('/keys')}>
+              <button className="btn btn-primary" onClick={() => router.push('/agents')}>
                 Go to dashboard →
               </button>
             )}

@@ -597,10 +597,13 @@ export default function DashboardPage() {
           hint="Use this hash to identify yourself across the platform."
         />
         <div style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid var(--z-border)',
-          borderRadius: 12, padding: '20px 22px',
+          background: 'rgba(15,17,12,0.78)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 12, padding: '22px 24px',
           display: 'grid', gridTemplateColumns: '1fr', gap: 16,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 0 rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
         }}>
           <div>
             <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
@@ -645,7 +648,7 @@ export default function DashboardPage() {
         ) : agents.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '52px 20px',
-            background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--z-border)', borderRadius: 12,
+            background: 'rgba(15,17,12,0.6)', border: '1px dashed var(--border-strong)', borderRadius: 12,
           }}>
             <div style={{ fontSize: 44, marginBottom: 14, opacity: 0.18 }}>◉</div>
             <p style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>No agents yet</p>
@@ -668,10 +671,13 @@ export default function DashboardPage() {
                 <div
                   key={a.id}
                   style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--z-border)',
+                    background: 'rgba(15,17,12,0.78)',
+                    border: '1px solid var(--border-strong)',
                     borderRadius: 12,
-                    transition: 'border-color 150ms ease',
+                    transition: 'border-color 150ms ease, background 150ms ease',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 0 rgba(0,0,0,0.4)',
+                    backdropFilter: 'blur(6px)',
+                    WebkitBackdropFilter: 'blur(6px)',
                   }}
                 >
                   <div style={{
@@ -733,10 +739,10 @@ export default function DashboardPage() {
 
                   {open && (
                     <div style={{
-                      borderTop: '1px solid rgba(255,255,255,0.05)',
-                      padding: '16px 20px',
-                      background: 'rgba(0,0,0,0.18)',
-                      borderRadius: '0 0 12px 12px',
+                      borderTop: '1px solid var(--border-strong)',
+                      padding: '18px 20px',
+                      background: 'rgba(0,0,0,0.45)',
+                      borderRadius: '0 0 11px 11px',
                     }}>
                       {isMcp ? (
                         a.mcp_url ? (
@@ -756,14 +762,19 @@ export default function DashboardPage() {
                           <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
                             api key — {activeKey.name}
                           </p>
-                          <InlineCopy value={`${activeKey.prefix}…`} />
-                          <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.5 }}>
-                            Full key shown only at creation. Use <Link href={`/agents/${a.id}`} style={{ color: 'var(--accent)' }}>details</Link> to rotate.
-                          </p>
+                          <InlineCopy
+                            value={activeKey.plain_key ?? `${activeKey.prefix}…`}
+                            mask={!!activeKey.plain_key}
+                          />
+                          {!activeKey.plain_key && (
+                            <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.5 }}>
+                              Legacy key — only the prefix is stored. Create a new agent to get a fresh, fully visible key.
+                            </p>
+                          )}
                         </>
                       ) : (
                         <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)' }}>
-                          No active key. Open <Link href={`/agents/${a.id}`} style={{ color: 'var(--accent)' }}>details</Link> to rotate one.
+                          No active key for this agent yet.
                         </p>
                       )}
                     </div>
@@ -790,21 +801,24 @@ export default function DashboardPage() {
         {logs.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '40px 20px',
-            background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--z-border)', borderRadius: 12,
-            ...mono, fontSize: 13.5, color: 'var(--text-muted)',
+            background: 'rgba(15,17,12,0.6)', border: '1px dashed var(--border-strong)', borderRadius: 12,
+            ...mono, fontSize: 13.5, color: 'var(--text-dim)',
           }}>
             No activity yet — actions will appear here as your agents run.
           </div>
         ) : (
           <div style={{
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid var(--z-border)',
+            background: 'rgba(15,17,12,0.78)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 12, overflow: 'hidden',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 0 rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
           }}>
             <div style={{
               display: 'grid', gridTemplateColumns: '150px 140px 110px 130px 1fr',
-              padding: '10px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'rgba(0,0,0,0.25)',
+              padding: '11px 20px', borderBottom: '1px solid var(--border-strong)',
+              background: 'rgba(0,0,0,0.5)',
             }}>
               {['TIME', 'ACTION', 'PLATFORM', 'RESULT', 'INPUT'].map(h => (
                 <span key={h} style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', letterSpacing: '0.1em' }}>{h}</span>
