@@ -64,12 +64,28 @@ export async function POST(req: NextRequest) {
 
 async function handleHmac(body: unknown): Promise<NextResponse> {
   const parsed = hmacSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ allowed: false });
+  if (!parsed.success) {
+    const raw = body as Record<string, unknown> | null;
+    void writeLog({
+      agentId: typeof raw?.agentId === 'string' ? raw.agentId : null,
+      userId: null,
+      action: typeof raw?.action === 'string' ? raw.action : 'unknown',
+      platform: typeof raw?.platform === 'string' ? raw.platform : 'unknown',
+      result: 'BLOCKED_INVALID_KEY',
+      ruleViolated: 'hmac_schema_invalid',
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
+  }
 
   const { agentId, timestamp, nonce, action, platform, signature } = parsed.data;
 
   const ts = Date.parse(timestamp);
   if (isNaN(ts) || Math.abs(Date.now() - ts) > CLOCK_SKEW_MS) {
+    void writeLog({
+      agentId, userId: null, action, platform,
+      result: 'BLOCKED_INVALID_KEY',
+      ruleViolated: 'clock_skew',
+    }).catch(() => {});
     return NextResponse.json({ allowed: false });
   }
 
@@ -92,18 +108,34 @@ async function handleHmac(body: unknown): Promise<NextResponse> {
     return NextResponse.json({ allowed: false });
   }
 
-  if (!config.ENCRYPTION_KEY) return NextResponse.json({ allowed: false });
+  if (!config.ENCRYPTION_KEY) {
+    void writeLog({
+      agentId, userId: agent.user_id, action, platform,
+      result: 'BLOCKED_INVALID_KEY',
+      ruleViolated: 'encryption_key_missing',
+    }).catch(() => {});
+    return NextResponse.json({ allowed: false });
+  }
 
   let secret: string;
   try {
     secret = decryptSecret(agent.secret_enc, config.ENCRYPTION_KEY);
   } catch {
+    void writeLog({
+      agentId, userId: agent.user_id, action, platform,
+      result: 'BLOCKED_INVALID_KEY',
+      ruleViolated: 'secret_decrypt_failed',
+    }).catch(() => {});
     return NextResponse.json({ allowed: false });
   }
 
   const payload = buildHmacPayload(agentId, timestamp, nonce, action, platform);
   if (!verifyHmacSignature(secret, payload, signature)) {
-    void writeLog({ agentId, userId: agent.user_id, action, platform, result: 'BLOCKED_INVALID_KEY' });
+    void writeLog({
+      agentId, userId: agent.user_id, action, platform,
+      result: 'BLOCKED_INVALID_KEY',
+      ruleViolated: 'hmac_signature_mismatch',
+    }).catch(() => {});
     return NextResponse.json({ allowed: false });
   }
 
