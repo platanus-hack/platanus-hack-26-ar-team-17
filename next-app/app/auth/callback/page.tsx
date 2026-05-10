@@ -17,6 +17,7 @@ export default function CallbackPage() {
 
         // Handle both PKCE flow (?code=) and implicit flow (#access_token=)
         const code = new URLSearchParams(window.location.search).get('code');
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
         let accessToken: string | null = null;
 
         if (code) {
@@ -25,6 +26,10 @@ export default function CallbackPage() {
             throw new Error(exchangeError?.message ?? 'Failed to exchange code');
           }
           accessToken = data.session.access_token;
+        } else if (hashParams.has('access_token')) {
+          accessToken = hashParams.get('access_token');
+          if (!accessToken) throw new Error('No access token found');
+          window.history.replaceState(null, '', window.location.pathname);
         } else {
           // Implicit flow: Supabase already set the session from the hash
           const { data, error: sessionError } = await supabase.auth.getSession();
