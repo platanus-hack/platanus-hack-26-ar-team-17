@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       ? getMcpUrl(me.userHash, result.agent.id, config.SITE_URL)
       : null;
 
+  // apiSecret is returned only once — store it in ZERO_API_SECRET env var
   return NextResponse.json(
     { ...result, agent: { ...result.agent, mcp_url } },
     { status: 201 },

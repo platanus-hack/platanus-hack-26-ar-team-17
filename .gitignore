@@ -4,3 +4,6 @@ out
 .env*.local
 *.tsbuildinfo
 .DS_Store
+.playwright-mcp/
+
+CLAUDE.md
