@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { revokeToken, verifyToken } from '@/lib/services/token.service';
-import { getProfileByUserId, createProfile } from '@/lib/services/profile.service';
-import { createVerificationSession, getKycPortraitAsBase64 } from '@/lib/services/didit.service';
-import { createPendingLoginAttempt } from '@/lib/services/loginAttempt.service';
-import { clearSessionCookie, APP_SESSION_COOKIE } from '@/lib/cookies';
+import { getProfileByUserId, createProfile, getSessionFieldsForAuthUser } from '@/lib/services/profile.service';
+import { createVerificationSession } from '@/lib/services/didit.service';
+import { clearSessionCookie, setSessionCookie, APP_SESSION_COOKIE } from '@/lib/cookies';
 import { checkRateLimit } from '@/lib/rateLimiter';
+import { issueUserToken } from '@/lib/services/token.service';
 import { config } from '@/lib/config';
 
 const bodySchema = z.object({ supabase_access_token: z.string().min(1) });
@@ -37,12 +37,28 @@ export async function POST(req: NextRequest) {
 
   const profile = await getProfileByUserId(user.id);
 
-  // New user → run KYC (id + face) and bootstrap a profile in PENDING state.
+  // Returning approved user → log in directly, no Didit needed.
+  if (profile?.verification_status === 'APPROVED') {
+    const token = await issueUserToken(user.id);
+    const fields = await getSessionFieldsForAuthUser(user.id);
+    const res = NextResponse.json({
+      mode: 'direct',
+      token,
+      userId: user.id,
+      kycStatus: fields?.kycStatus ?? 'VERIFIED',
+      displayName: fields?.displayName ?? 'Account',
+    });
+    setSessionCookie(res, token);
+    return res;
+  }
+
+  // New user → create profile + start KYC.
+  const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
+  if (!kycWorkflowId) {
+    return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
+  }
+
   if (!profile) {
-    const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
-    if (!kycWorkflowId) {
-      return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
-    }
     try {
       const kycSession = await createVerificationSession({
         userId: user.id,
@@ -74,100 +90,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Existing user, KYC not yet approved.
-  if (profile.verification_status !== 'APPROVED') {
-    if (profile.didit_kyc_session_url) {
-      return NextResponse.json({
-        mode: 'kyc',
-        verification_url: profile.didit_kyc_session_url,
-        session_id: profile.didit_kyc_session_id,
-      });
-    }
-
-    const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
-    if (!kycWorkflowId) {
-      return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
-    }
-    try {
-      const kycSession = await createVerificationSession({
-        userId: user.id,
-        workflowId: kycWorkflowId,
-        callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
-      });
-      await supabase
-        .from('users')
-        .update({
-          didit_session_id: kycSession.session_id,
-          didit_session_url: kycSession.url,
-          kyc_status: 'PENDING',
-        })
-        .eq('id', profile.id);
-
-      return NextResponse.json({
-        mode: 'kyc',
-        verification_url: kycSession.url,
-        session_id: kycSession.session_id,
-      });
-    } catch (err) {
-      console.error('login (kyc resume) error:', err);
-      return NextResponse.json({ error: 'internal' }, { status: 500 });
-    }
-  }
-
-  // Returning approved user → try biometric face check.
-  // If portrait is unavailable or biometric workflow not configured, fall back to KYC.
-  const biometricWorkflowId = config.DIDIT_BIOMETRIC_WORKFLOW_ID;
-  const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
-
-  let portraitImage: string | undefined;
-  if (biometricWorkflowId && profile.didit_kyc_session_id) {
-    try {
-      const fetched = await getKycPortraitAsBase64(profile.didit_kyc_session_id);
-      if (fetched) portraitImage = fetched;
-    } catch (err) {
-      console.error('failed to fetch KYC portrait for biometric session:', err);
-    }
-  }
-
-  // Biometric path: only when we have both a biometric workflow and a portrait.
-  if (biometricWorkflowId && portraitImage) {
-    try {
-      const session = await createVerificationSession({
-        userId: user.id,
-        workflowId: biometricWorkflowId,
-        callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
-        portraitImage,
-      });
-      await createPendingLoginAttempt(session.session_id, user.id);
-      return NextResponse.json({
-        mode: 'biometric',
-        verification_url: session.url,
-        session_id: session.session_id,
-      });
-    } catch (err) {
-      console.error('login (biometric) error:', err);
-      // fall through to KYC
-    }
-  }
-
-  // KYC fallback: re-verify identity when biometric is unavailable.
-  if (!kycWorkflowId) {
-    return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
-  }
+  // Existing user still pending KYC → always create a fresh session (old ones may be expired).
   try {
     const kycSession = await createVerificationSession({
       userId: user.id,
       workflowId: kycWorkflowId,
-      callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
+      callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
     });
-    await createPendingLoginAttempt(kycSession.session_id, user.id);
+    await supabase
+      .from('users')
+      .update({
+        didit_session_id: kycSession.session_id,
+        didit_session_url: kycSession.url,
+        kyc_status: 'PENDING',
+      })
+      .eq('id', profile.id);
     return NextResponse.json({
       mode: 'kyc',
       verification_url: kycSession.url,
       session_id: kycSession.session_id,
     });
   } catch (err) {
-    console.error('login (kyc fallback) error:', err);
+    console.error('login (kyc resume) error:', err);
     return NextResponse.json({ error: 'internal' }, { status: 500 });
   }
 }

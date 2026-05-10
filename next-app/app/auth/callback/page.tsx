@@ -22,8 +22,22 @@ export default function CallbackPage() {
           throw new Error(exchangeError?.message ?? 'Failed to complete OAuth sign-in');
         }
 
-        const { verification_url } = await authApi.loginWithOAuth(exchangeData.session.access_token);
-        window.location.href = verification_url;
+        const result = await authApi.loginWithOAuth(exchangeData.session.access_token);
+
+        if (result.mode === 'direct') {
+          // Approved user — store session and go straight to dashboard.
+          localStorage.setItem('zero_auth', JSON.stringify({
+            token: result.token,
+            userId: result.userId,
+            kycStatus: result.kycStatus ?? null,
+            displayName: result.displayName ?? null,
+          }));
+          window.location.href = result.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+          return;
+        }
+
+        // New or pending user — redirect to Didit for KYC.
+        window.location.href = result.verification_url;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'OAuth callback failed';
         setError(msg);
