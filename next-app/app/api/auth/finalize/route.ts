@@ -9,7 +9,7 @@ import {
 } from '@/lib/services/profile.service';
 import { issueUserToken } from '@/lib/services/token.service';
 import { setSessionCookie } from '@/lib/cookies';
-import { DiditSessionDetails, getSession } from '@/lib/services/didit.service';
+import { DiditDecision, getDecision } from '@/lib/services/didit.service';
 
 const querySchema = z.object({
   intent: z.enum(['login', 'register']),
@@ -35,22 +35,25 @@ async function approveResponse(userId: string): Promise<NextResponse> {
 }
 
 /**
- * Apply a Didit session's verdict to a profile. Returns the final verification
- * status, or null if Didit hasn't reached a terminal state yet.
+ * Apply a Didit decision response to the local profile. Returns the final
+ * verification status, or null if Didit hasn't reached a terminal state yet.
  */
 async function applyDiditDecision(
-  session: DiditSessionDetails,
+  decision: DiditDecision,
   authUserId: string,
 ): Promise<'APPROVED' | 'REJECTED' | null> {
-  if (session.status !== 'Approved' && session.status !== 'Declined' && session.status !== 'Abandoned') {
+  const status = String(decision.status ?? '');
+  if (status !== 'Approved' && status !== 'Declined' && status !== 'Abandoned') {
     return null;
   }
-  const kycDecision = session.decision?.kyc as
-    | { document_number?: string; full_name?: string }
-    | undefined;
-  const documentNumber = kycDecision?.document_number ?? session.kyc?.document_number ?? '';
-  const fullName = kycDecision?.full_name ?? session.kyc?.full_name ?? null;
-  const verification_status = session.status === 'Approved' ? 'APPROVED' : 'REJECTED';
+  const idVer = decision.id_verifications?.[0] as Record<string, unknown> | undefined;
+  const documentNumber = (idVer?.document_number as string | undefined) ?? '';
+  const firstName = (idVer?.first_name as string | undefined) ?? null;
+  const lastName = (idVer?.last_name as string | undefined) ?? null;
+  const fullName =
+    (idVer?.full_name as string | undefined) ??
+    (firstName && lastName ? `${firstName} ${lastName}` : firstName ?? lastName ?? null);
+  const verification_status: 'APPROVED' | 'REJECTED' = status === 'Approved' ? 'APPROVED' : 'REJECTED';
 
   await updateProfileFromKycResult(authUserId, {
     dni: verification_status === 'APPROVED' ? documentNumber : '',
@@ -79,14 +82,15 @@ export async function GET(req: NextRequest) {
   // when we created the session, so Didit's response is the source of truth and
   // works even when the local profile didn't capture the session id.
   let authUserId: string | null = null;
-  let diditSession: DiditSessionDetails | null = null;
+  let diditDecision: DiditDecision | null = null;
 
   try {
-    diditSession = await getSession(parsed.data.session_id);
-    if (diditSession?.vendor_data) authUserId = diditSession.vendor_data;
-    console.log('[finalize] didit session', parsed.data.session_id, 'status:', diditSession?.status, 'vendor_data:', diditSession?.vendor_data);
+    diditDecision = await getDecision(parsed.data.session_id);
+    const vd = diditDecision?.vendor_data;
+    if (typeof vd === 'string') authUserId = vd;
+    console.log('[finalize] didit decision', parsed.data.session_id, 'status:', diditDecision?.status, 'vendor_data:', vd);
   } catch (err) {
-    console.warn('[finalize] failed to fetch Didit session', parsed.data.session_id, err);
+    console.warn('[finalize] failed to fetch Didit decision', parsed.data.session_id, err);
   }
 
   // Fall back to Supabase token if Didit didn't return a vendor_data we can use.
@@ -109,8 +113,8 @@ export async function GET(req: NextRequest) {
   if (profile.verification_status === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
 
   // Apply Didit's verdict if we already have it; otherwise the profile is still pending.
-  if (diditSession) {
-    const syncedStatus = await applyDiditDecision(diditSession, authUserId);
+  if (diditDecision) {
+    const syncedStatus = await applyDiditDecision(diditDecision, authUserId);
     if (syncedStatus === 'APPROVED') return approveResponse(authUserId);
     if (syncedStatus === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
   }
