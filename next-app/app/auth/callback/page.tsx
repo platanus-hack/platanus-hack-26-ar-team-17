@@ -13,17 +13,47 @@ export default function CallbackPage() {
   useEffect(() => {
     async function handleCallback() {
       try {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (!code) throw new Error('Missing OAuth code');
-
         const supabase = getSupabaseBrowser();
-        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError || !exchangeData.session?.access_token) {
-          throw new Error(exchangeError?.message ?? 'Failed to complete OAuth sign-in');
+
+        // Handle both PKCE flow (?code=) and implicit flow (#access_token=)
+        const code = new URLSearchParams(window.location.search).get('code');
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        let accessToken: string | null = null;
+
+        if (code) {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError || !data.session?.access_token) {
+            throw new Error(exchangeError?.message ?? 'Failed to exchange code');
+          }
+          accessToken = data.session.access_token;
+        } else if (hashParams.has('access_token')) {
+          accessToken = hashParams.get('access_token');
+          if (!accessToken) throw new Error('No access token found');
+          window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          // Implicit flow: Supabase already set the session from the hash
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError || !data.session?.access_token) {
+            throw new Error(sessionError?.message ?? 'No session found');
+          }
+          accessToken = data.session.access_token;
         }
 
-        const { verification_url } = await authApi.loginWithOAuth(exchangeData.session.access_token);
-        window.location.href = verification_url;
+        const result = await authApi.loginWithOAuth(accessToken);
+
+        if (result.mode === 'direct') {
+          localStorage.setItem('zero_auth', JSON.stringify({
+            token: result.token,
+            userId: result.userId,
+            kycStatus: result.kycStatus ?? null,
+            displayName: result.displayName ?? null,
+          }));
+          window.location.href = result.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+          return;
+        }
+
+        // New or pending user — redirect to Didit for KYC.
+        window.location.href = result.verification_url;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'OAuth callback failed';
         setError(msg);

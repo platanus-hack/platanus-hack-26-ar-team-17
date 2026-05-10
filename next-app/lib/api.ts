@@ -49,11 +49,9 @@ export interface AuditLog {
   created_at: string;
 }
 
-export interface AuthLoginResponse {
-  mode: 'kyc' | 'biometric';
-  verification_url: string;
-  session_id: string;
-}
+export type AuthLoginResponse =
+  | { mode: 'direct'; token: string; userId: string; kycStatus: string; displayName: string }
+  | { mode: 'kyc' | 'biometric'; verification_url: string; session_id: string };
 
 async function req<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {

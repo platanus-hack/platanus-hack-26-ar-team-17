@@ -1,0 +1,12 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "drawio",
+    "supabase"
+  ],
+  "permissions": {
+    "allow": [
+      "Bash(defuddle parse *)"
+    ]
+  }
+}
