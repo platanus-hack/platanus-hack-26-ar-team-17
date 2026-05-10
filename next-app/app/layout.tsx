@@ -3,27 +3,39 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import './globals.css';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://zero-dnvh8x7x6-martinpulis-projects.vercel.app'),
+  metadataBase: new URL('https://platanus-hack-26-ar-team-17.vercel.app'),
   title: {
-    default: 'Zero - Identity for AI Agents',
+    default: 'Zero — The License Plate for AI Agents',
     template: '%s | Zero',
   },
   description:
-    'The identity layer for the agentic internet. Issue cryptographic API keys to your AI agents, audit every action, and revoke access instantly.',
-  keywords: ['AI agents', 'agent authentication', 'API keys', 'KYC', 'agentic AI', 'agent identity', 'agent authorization'],
+    'Identity, permissions and accountability for AI agents. Register an agent, assign an owner, define permissions, and verify every action in real time. Built at Platanus Hack.',
+  keywords: [
+    'AI agents',
+    'agent identity',
+    'agent authentication',
+    'agent authorization',
+    'API keys',
+    'KYC for agents',
+    'agentic AI',
+    'Internet of Agents',
+    'Platanus Hack',
+  ],
   authors: [{ name: 'Zero' }],
   creator: 'Zero',
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    title: 'Zero - Identity for AI Agents',
-    description: 'Issue cryptographic API keys to your AI agents. Full audit trail, revocable at any time.',
+    title: "Internet wasn't built for AI agents. Zero fixes that.",
+    description:
+      'The identity layer for the Internet of Agents. Register an agent, assign an owner, define permissions, and verify every action in real time.',
     siteName: 'Zero',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Zero - Identity for AI Agents',
-    description: 'Issue cryptographic API keys to your AI agents. Full audit trail, revocable at any time.',
+    title: 'The license plate for AI agents.',
+    description:
+      'Identity, permissions and accountability for the Internet of Agents. Built at Platanus Hack.',
   },
   robots: {
     index: true,

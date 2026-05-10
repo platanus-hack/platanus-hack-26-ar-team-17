@@ -583,12 +583,6 @@ export default function DashboardPage() {
               <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api secret (HMAC)</p>
               <InlineCopy value={reveal.apiSecret} mask />
             </div>
-            {reveal.plainKey && (
-              <div>
-                <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api key (legacy)</p>
-                <InlineCopy value={reveal.plainKey} mask />
-              </div>
-            )}
           </div>
           <button onClick={() => setReveal(null)} style={{
             ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 14,
