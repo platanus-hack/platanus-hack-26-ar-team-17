@@ -562,7 +562,6 @@ function Step2Identity({
 
 function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => void }) {
   const [name, setName] = useState('My first agent');
-  const [platform, setPlatform] = useState('mcp');
   const [creating, setCreating] = useState(false);
   const [plainKey, setPlainKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -573,7 +572,7 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
     if (!token) return;
     setCreating(true); setError('');
     try {
-      const result = await agentsApi.create(token, { name, platform, type: 'agent' });
+      const result = await agentsApi.create(token, { name, platform: 'all', type: 'agent' });
       if (!result.key) throw new Error('No key returned');
       setPlainKey(result.key.plainKey);
     } catch (err: unknown) {
@@ -654,30 +653,6 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
       <form onSubmit={create}>
         <Field label="Key name">
           <input className="z-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sales Bot" required autoFocus />
-        </Field>
-
-        <Field label="Where will it run?">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-            {PLATFORMS.map(p => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPlatform(p.value)}
-                style={{
-                  ...mono, fontSize: 11,
-                  padding: '11px 12px', borderRadius: 999, cursor: 'pointer',
-                  background: platform === p.value ? 'rgba(200,245,66,0.1)' : 'rgba(255,255,255,0.035)',
-                  border: `1px solid ${platform === p.value ? 'rgba(200,245,66,0.45)' : 'rgba(255,255,255,0.07)'}`,
-                  color: platform === p.value ? 'var(--accent)' : 'rgba(245,245,245,0.6)',
-                  backdropFilter: 'blur(12px)',
-                  boxShadow: platform === p.value ? '0 0 16px -4px rgba(200,245,66,0.25)' : 'none',
-                  transition: 'all 200ms cubic-bezier(0.16,1,0.3,1)', textAlign: 'center',
-                }}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
         </Field>
 
         {error && <ErrorRow message={error} />}

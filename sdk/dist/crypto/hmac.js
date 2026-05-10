@@ -13,6 +13,6 @@ function generateNonce() {
 function buildPayload(agentId, timestamp, nonce, action, platform) {
     return `${agentId}|${timestamp}|${nonce}|${action}|${platform}`;
 }
-function signPayload(secret, payload) {
-    return crypto_1.default.createHmac('sha256', secret).update(payload).digest('hex');
+function signPayload(apiSecret, payload) {
+    return crypto_1.default.createHmac('sha256', apiSecret).update(payload).digest('hex');
 }

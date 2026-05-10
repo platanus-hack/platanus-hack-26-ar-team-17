@@ -1,6 +1,6 @@
 import { supabase } from '../db/supabase';
 import { createApiKey } from './apiKey.service';
-import { generateAgentSecret, encryptSecret } from '../utils/crypto';
+import { generateAgentSecret, encryptSecret, decryptSecret } from '../utils/crypto';
 import { config } from '../config';
 
 export type AgentType = 'agent' | 'mcp';
@@ -17,6 +17,12 @@ export interface Agent {
 
 export interface AgentWithMcpUrl extends Agent {
   mcp_url: string | null;
+  api_secret: string | null;
+}
+
+function safeDecrypt(secretEnc: string | null | undefined): string | null {
+  if (!secretEnc || !config.ENCRYPTION_KEY) return null;
+  try { return decryptSecret(secretEnc, config.ENCRYPTION_KEY); } catch { return null; }
 }
 
 export interface AgentKeySummary {
@@ -47,6 +53,15 @@ export async function listAgents(userId: string): Promise<Agent[]> {
   return (data ?? []) as Agent[];
 }
 
+export async function listAgentsRaw(userId: string): Promise<(Agent & { secret_enc: string | null })[]> {
+  const { data } = await supabase
+    .from('agents')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  return (data ?? []) as (Agent & { secret_enc: string | null })[];
+}
+
 export async function countAgentsForUser(userId: string): Promise<number> {
   const { count, error } = await supabase
     .from('agents')
@@ -60,8 +75,15 @@ export async function listAgentsWithMcpUrl(
   userId: string,
   userHash: string | null,
 ): Promise<AgentWithMcpUrl[]> {
-  const agents = await listAgents(userId);
-  return agents.map(a => ({ ...a, mcp_url: toMcpUrl(a, userHash) }));
+  const agents = await listAgentsRaw(userId);
+  return agents.map(a => {
+    const { secret_enc, ...rest } = a;
+    return {
+      ...rest,
+      mcp_url: toMcpUrl(rest, userHash),
+      api_secret: safeDecrypt(secret_enc),
+    };
+  });
 }
 
 export async function getAgentWithKeys(
@@ -69,8 +91,15 @@ export async function getAgentWithKeys(
   userId: string,
   userHash: string | null,
 ): Promise<{ agent: AgentWithMcpUrl; keys: AgentKeySummary[] } | null> {
-  const agent = await getAgent(agentId, userId);
-  if (!agent) return null;
+  const { data: raw } = await supabase
+    .from('agents')
+    .select('*')
+    .eq('id', agentId)
+    .eq('user_id', userId)
+    .single<Agent & { secret_enc: string | null }>();
+  if (!raw) return null;
+
+  const { secret_enc, ...agent } = raw;
 
   const { data: keys } = await supabase
     .from('api_keys')
@@ -79,7 +108,11 @@ export async function getAgentWithKeys(
     .order('created_at', { ascending: false });
 
   return {
-    agent: { ...agent, mcp_url: toMcpUrl(agent, userHash) },
+    agent: {
+      ...agent,
+      mcp_url: toMcpUrl(agent, userHash),
+      api_secret: safeDecrypt(secret_enc),
+    },
     keys: (keys ?? []) as AgentKeySummary[],
   };
 }

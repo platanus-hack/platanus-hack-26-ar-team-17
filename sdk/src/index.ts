@@ -36,7 +36,7 @@ export class ZeroGateSDK {
     this.apiSecret     = config.apiSecret     ?? fromEnv('ZERO_API_SECRET')      ?? '';
     this.privateKey    = config.privateKey    ?? fromEnv('ZERO_PRIVATE_KEY')     ?? '';
     this.privateKeyPqc = config.privateKeyPqc ?? fromEnv('ZERO_PRIVATE_KEY_PQC') ?? '';
-    this.platformApiUrl = config.platformApiUrl ?? PLATFORM_API_URL;
+    this.platformApiUrl = config.platformApiUrl ?? fromEnv('ZERO_PLATFORM_API_URL') ?? PLATFORM_API_URL;
     this.platform      = detectPlatform();
 
     if (this.agentId && this.privateKey) {

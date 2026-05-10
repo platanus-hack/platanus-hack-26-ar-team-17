@@ -11,6 +11,7 @@ export interface Agent {
   status: 'ACTIVE' | 'DISABLED';
   created_at: string;
   mcp_url?: string | null;
+  api_secret?: string | null;
 }
 
 export interface ApiKey {
@@ -92,6 +93,7 @@ export const agentsApi = {
     req<{
       agent: Agent;
       key: { id: string; plainKey: string; prefix: string } | null;
+      apiSecret: string;
     }>('/api/agents', token, {
       method: 'POST',
       body: JSON.stringify(data),

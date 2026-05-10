@@ -14,6 +14,7 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
 
 const PLATFORMS = [
+  { value: 'all', label: 'All platforms', icon: '∞' },
   { value: 'whatsapp', label: 'WhatsApp', icon: '◎' },
   { value: 'telegram', label: 'Telegram', icon: '◈' },
   { value: 'slack', label: 'Slack', icon: '◆' },
@@ -314,7 +315,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 
 /* ─── Create agent wizard (kept from prior version) ─── */
 
-type WizardStep = 'name' | 'platform' | 'ready';
+type WizardStep = 'name' | 'ready';
 
 function SystemBubble({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
@@ -357,7 +358,6 @@ function CreateAgentWizard({
 }) {
   const [step, setStep] = useState<WizardStep>('name');
   const [name, setName] = useState('');
-  const [platform, setPlatform] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -370,20 +370,15 @@ function CreateAgentWizard({
   function commitName(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    setStep('platform');
+    setStep('ready');
   }
-  function pickPlatform(p: string) { setPlatform(p); setStep('ready'); }
 
   async function submit() {
-    if (!name || !platform) return;
+    if (!name) return;
     setCreating(true); setError('');
-    try { await onSubmit({ name: name.trim(), type: 'agent', platform }); }
+    try { await onSubmit({ name: name.trim(), type: 'agent', platform: 'all' }); }
     catch (err) { setError((err as Error).message ?? 'Something went wrong'); setCreating(false); }
   }
-
-  const platformMeta = platform
-    ? (PLATFORMS.find(p => p.value === platform) ?? null)
-    : null;
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -412,31 +407,7 @@ function CreateAgentWizard({
               <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={mono}>Continue</button>
             </form>
           ) : (
-            <UserBubble onEdit={() => { setStep('name'); setPlatform(null); }}>{name}</UserBubble>
-          )}
-
-          {(step === 'platform' || step === 'ready') && (
-            <>
-              <SystemBubble>Where will it live?</SystemBubble>
-              {step === 'platform' ? (
-                <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, paddingLeft: 36 }}>
-                  {PLATFORMS.map(p => (
-                    <button key={p.value} type="button" onClick={() => pickPlatform(p.value)} style={{
-                      ...mono, fontSize: 14, padding: '13px 14px', borderRadius: 999, cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                      color: 'var(--text-muted)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      <span style={{ opacity: 0.7 }}>{p.icon}</span>{p.label}
-                    </button>
-                  ))}
-                </div>
-              ) : platformMeta ? (
-                <UserBubble onEdit={() => setStep('platform')}>
-                  <span>{platformMeta.icon}</span> {platformMeta.label}
-                </UserBubble>
-              ) : null}
-            </>
+            <UserBubble onEdit={() => setStep('name')}>{name}</UserBubble>
           )}
 
           {step === 'ready' && (
@@ -473,7 +444,7 @@ export default function DashboardPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [reveal, setReveal] = useState<
-    | { kind: 'key'; plainKey: string }
+    | { kind: 'credentials'; agentId: string; apiSecret: string; plainKey?: string }
     | { kind: 'url'; url: string }
     | null
   >(null);
@@ -506,8 +477,13 @@ export default function DashboardPage() {
       const result = await agentsApi.create(token, values);
       if (values.type === 'mcp' && result.agent.mcp_url) {
         setReveal({ kind: 'url', url: result.agent.mcp_url });
-      } else if (result.key) {
-        setReveal({ kind: 'key', plainKey: result.key.plainKey });
+      } else {
+        setReveal({
+          kind: 'credentials',
+          agentId: result.agent.id,
+          apiSecret: result.apiSecret,
+          plainKey: result.key?.plainKey,
+        });
       }
       setShowCreate(false);
       await load();
@@ -590,8 +566,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Reveal banners */}
-      {reveal?.kind === 'key' && (
-        <CopyReveal label="API key" value={reveal.plainKey} mask onDismiss={() => setReveal(null)} />
+      {reveal?.kind === 'credentials' && (
+        <div className="key-reveal fade-in" style={{ marginBottom: 28 }}>
+          <p style={{ ...mono, fontSize: 13, color: 'var(--accent)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span>⬡</span> Agent created — credentials
+            <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>
+              · use these in <code style={{ color: 'var(--text-dim)' }}>X-Zero-Agent-Id</code> + <code style={{ color: 'var(--text-dim)' }}>X-Zero-Api-Secret</code>
+            </span>
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>agent id</p>
+              <InlineCopy value={reveal.agentId} />
+            </div>
+            <div>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api secret (HMAC)</p>
+              <InlineCopy value={reveal.apiSecret} mask />
+            </div>
+            {reveal.plainKey && (
+              <div>
+                <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api key (legacy)</p>
+                <InlineCopy value={reveal.plainKey} mask />
+              </div>
+            )}
+          </div>
+          <button onClick={() => setReveal(null)} style={{
+            ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 14,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          }}>Dismiss</button>
+        </div>
       )}
       {reveal?.kind === 'url' && (
         <CopyReveal label="MCP endpoint" hint="point your MCP client at this URL" value={reveal.url} onDismiss={() => setReveal(null)} />

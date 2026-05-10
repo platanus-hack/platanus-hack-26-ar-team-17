@@ -91,13 +91,24 @@ async function handleHmac(body: unknown): Promise<NextResponse> {
 
   const { data: agent } = await supabase
     .from('agents')
-    .select('id, user_id, status, secret_enc')
+    .select('id, user_id, status, platform, secret_enc')
     .eq('id', agentId)
     .eq('status', 'ACTIVE')
-    .single<{ id: string; user_id: string; status: string; secret_enc: string | null }>();
+    .single<{ id: string; user_id: string; status: string; platform: string; secret_enc: string | null }>();
 
   if (!agent || !agent.secret_enc) {
     void writeLog({ agentId: null, userId: null, action, platform, result: 'BLOCKED_INVALID_KEY' });
+    return NextResponse.json({ allowed: false });
+  }
+
+  // Universal agents (platform: 'all') accept any caller platform; otherwise the
+  // request platform must match the agent's registered platform.
+  if (agent.platform !== 'all' && agent.platform !== platform) {
+    void writeLog({
+      agentId, userId: agent.user_id, action, platform,
+      result: 'BLOCKED_RULE',
+      ruleViolated: `platform_mismatch:agent=${agent.platform},request=${platform}`,
+    }).catch(() => {});
     return NextResponse.json({ allowed: false });
   }
 

@@ -1,4 +1,4 @@
-export const PLATFORM_API_URL = 'https://next-app-ochre-zeta.vercel.app';
+export const PLATFORM_API_URL = 'https://platanus-hack-26-ar-team-17.vercel.app';
 
 export function detectPlatform(): string {
   if (typeof process === 'undefined') return 'custom';
