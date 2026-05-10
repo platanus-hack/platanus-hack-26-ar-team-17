@@ -39,13 +39,14 @@ export async function POST(req: NextRequest) {
 
   // New user → run KYC (id + face) and bootstrap a profile in PENDING state.
   if (!profile) {
-    if (!config.DIDIT_KYC_WORKFLOW_ID) {
-      return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
+    const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
+    if (!kycWorkflowId) {
+      return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
     }
     try {
       const kycSession = await createVerificationSession({
         userId: user.id,
-        workflowId: config.DIDIT_KYC_WORKFLOW_ID,
+        workflowId: kycWorkflowId,
         callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
       });
       await createProfile({
@@ -78,13 +79,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Returning approved user → biometric face check only.
-  if (!config.DIDIT_BIOMETRIC_WORKFLOW_ID) {
-    return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
+  // Falls back to KYC workflow if no dedicated biometric workflow is configured.
+  const biometricWorkflowId =
+    config.DIDIT_BIOMETRIC_WORKFLOW_ID ?? config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
+  if (!biometricWorkflowId) {
+    return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_BIOMETRIC_WORKFLOW_ID' }, { status: 500 });
   }
 
   const session = await createVerificationSession({
     userId: user.id,
-    workflowId: config.DIDIT_BIOMETRIC_WORKFLOW_ID,
+    workflowId: biometricWorkflowId,
     callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
   });
 
