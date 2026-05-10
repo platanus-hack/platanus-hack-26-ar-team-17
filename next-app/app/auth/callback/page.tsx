@@ -2,33 +2,28 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/lib/api';
 import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 export default function CallbackPage() {
   const router = useRouter();
-  const { login } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function handleCallback() {
       try {
-        const supabase = getSupabaseBrowser();
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (!code) throw new Error('Missing OAuth code');
 
-        // Get the current session (Supabase stores it after OAuth redirect)
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData?.session?.access_token) {
-          throw new Error('Failed to get OAuth session');
+        const supabase = getSupabaseBrowser();
+        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError || !exchangeData.session?.access_token) {
+          throw new Error(exchangeError?.message ?? 'Failed to complete OAuth sign-in');
         }
 
-        const { token, userId, kycStatus } = await authApi.loginWithOAuth(sessionData.session.access_token);
-        login(token, userId, kycStatus);
-
-        // Redirect based on KYC status
-        const redirectPath = kycStatus === 'VERIFIED' ? '/keys' : '/onboard?step=2';
-        router.push(redirectPath);
+        const { verification_url } = await authApi.loginWithOAuth(exchangeData.session.access_token);
+        window.location.href = verification_url;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'OAuth callback failed';
         setError(msg);
@@ -38,7 +33,7 @@ export default function CallbackPage() {
     }
 
     handleCallback();
-  }, []);
+  }, [router]);
 
   return (
     <div

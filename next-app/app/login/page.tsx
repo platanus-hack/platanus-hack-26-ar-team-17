@@ -50,7 +50,6 @@ export default function LoginPage() {
       }
     });
     return () => sub.data.subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   const signInWithGoogle = async () => {
@@ -60,7 +59,7 @@ export default function LoginPage() {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: `${window.location.origin}/auth/google-callback`,
           queryParams: { prompt: 'select_account' },
         },
       });

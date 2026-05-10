@@ -14,5 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Redirect to client-side callback page to finalize with access token
-  return NextResponse.redirect(new URL(`/auth/callback?code=${code}`, req.url));
+  const callbackUrl = new URL('/auth/callback', req.url);
+  callbackUrl.searchParams.set('code', code);
+  return NextResponse.redirect(callbackUrl);
 }

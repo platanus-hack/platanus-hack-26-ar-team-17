@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { getLoginAttempt } from '@/lib/services/loginAttempt.service';
-import { getProfileByUserId, getSessionFieldsForAuthUser } from '@/lib/services/profile.service';
+import {
+  getProfileByUserId,
+  getSessionFieldsForAuthUser,
+  updateProfileFromKycResult,
+} from '@/lib/services/profile.service';
 import { issueUserToken } from '@/lib/services/token.service';
 import { setSessionCookie } from '@/lib/cookies';
+import { getSession } from '@/lib/services/didit.service';
 
 const querySchema = z.object({
   intent: z.enum(['login', 'register']),
@@ -27,6 +32,32 @@ async function approveResponse(userId: string): Promise<NextResponse> {
   );
   setSessionCookie(res, token);
   return res;
+}
+
+async function syncKycStatusFromDidit(sessionId: string, authUserId: string) {
+  try {
+    const session = await getSession(sessionId);
+    if (session.status !== 'Approved' && session.status !== 'Declined' && session.status !== 'Abandoned') {
+      return null;
+    }
+
+    const kycDecision = session.decision?.kyc as
+      | { document_number?: string; full_name?: string }
+      | undefined;
+    const documentNumber = kycDecision?.document_number ?? session.kyc?.document_number ?? '';
+    const fullName = kycDecision?.full_name ?? session.kyc?.full_name ?? null;
+    const verification_status = session.status === 'Approved' ? 'APPROVED' : 'REJECTED';
+
+    await updateProfileFromKycResult(authUserId, {
+      dni: verification_status === 'APPROVED' ? documentNumber : '',
+      full_name: verification_status === 'APPROVED' ? fullName : null,
+      verification_status,
+    });
+
+    return verification_status;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -53,5 +84,10 @@ export async function GET(req: NextRequest) {
   if (!profile) return NextResponse.json({ status: 'pending' }, { status: 202 });
   if (profile.verification_status === 'APPROVED') return approveResponse(profile.user_id);
   if (profile.verification_status === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
+
+  const syncedStatus = await syncKycStatusFromDidit(parsed.data.session_id, userResult.user.id);
+  if (syncedStatus === 'APPROVED') return approveResponse(userResult.user.id);
+  if (syncedStatus === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
+
   return NextResponse.json({ status: 'pending' }, { status: 202 });
 }

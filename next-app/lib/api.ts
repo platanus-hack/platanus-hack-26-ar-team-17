@@ -49,6 +49,12 @@ export interface AuditLog {
   created_at: string;
 }
 
+export interface AuthLoginResponse {
+  mode: 'kyc' | 'biometric';
+  verification_url: string;
+  session_id: string;
+}
+
 async function req<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     ...options,
@@ -69,7 +75,7 @@ async function req<T>(path: string, token: string | null, options: RequestInit =
 
 export const authApi = {
   loginWithOAuth: (supabase_access_token: string) =>
-    req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/login', null, {
+    req<AuthLoginResponse>('/api/auth/login', null, {
       method: 'POST',
       body: JSON.stringify({ supabase_access_token }),
     }),

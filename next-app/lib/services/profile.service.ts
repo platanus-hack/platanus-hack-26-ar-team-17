@@ -15,6 +15,7 @@ export interface ProfileInput {
   picture_url: string | null;
   dni: string | null;
   didit_kyc_session_id: string;
+  didit_kyc_session_url?: string | null;
   verification_status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
@@ -33,6 +34,7 @@ type UsersRow = {
   picture_url: string | null;
   dni: string | null;
   didit_session_id: string | null;
+  didit_session_url: string | null;
   kyc_status: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
   created_at?: string;
   kyc_verified_at?: string | null;
@@ -58,6 +60,7 @@ function rowToProfile(row: UsersRow): Profile {
     picture_url: row.picture_url,
     dni: row.dni,
     didit_kyc_session_id: row.didit_session_id ?? '',
+    didit_kyc_session_url: row.didit_session_url,
     verification_status: statusFromDb(row.kyc_status),
     enrolled_at: row.created_at,
   };
@@ -115,6 +118,7 @@ export async function createProfile(input: ProfileInput): Promise<Profile> {
       picture_url: input.picture_url,
       dni: input.dni,
       didit_session_id: input.didit_kyc_session_id,
+      didit_session_url: input.didit_kyc_session_url ?? null,
       kyc_status: dbStatus,
     })
     .select()

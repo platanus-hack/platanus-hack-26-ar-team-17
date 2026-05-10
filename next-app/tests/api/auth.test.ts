@@ -111,15 +111,51 @@ describe('POST /api/auth/login', () => {
     );
   });
 
-  it('returns 409 when verification is still PENDING', async () => {
+  it('resumes KYC when verification is still PENDING and a session URL exists', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce({
       ...approvedProfile,
       verification_status: 'PENDING',
+      didit_kyc_session_id: 'sess_kyc_pending',
+      didit_kyc_session_url: 'https://verify/sess_kyc_pending',
     });
     const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
-    expect(res.status).toBe(409);
-    expect((await res.json()).error).toBe('verification_pending');
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.mode).toBe('kyc');
+    expect(body.verification_url).toBe('https://verify/sess_kyc_pending');
+  });
+
+  it('creates a new KYC session when pending verification has no resumable URL', async () => {
+    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
+    getProfileByUserId.mockResolvedValueOnce({
+      ...approvedProfile,
+      id: 'internal_user_1',
+      verification_status: 'PENDING',
+      didit_kyc_session_id: '',
+      didit_kyc_session_url: null,
+    });
+    createVerificationSession.mockResolvedValueOnce({
+      session_id: 'sess_kyc_resume',
+      url: 'https://verify/sess_kyc_resume',
+      status: 'Not Started',
+    });
+    const eq = jest.fn().mockResolvedValue({ error: null });
+    const update = jest.fn(() => ({ eq }));
+    supabase.from.mockReturnValueOnce({ update });
+
+    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.mode).toBe('kyc');
+    expect(body.verification_url).toBe('https://verify/sess_kyc_resume');
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        didit_session_id: 'sess_kyc_resume',
+        didit_session_url: 'https://verify/sess_kyc_resume',
+      }),
+    );
+    expect(eq).toHaveBeenCalledWith('id', 'internal_user_1');
   });
 
   it('returns 429 when rate-limited', async () => {

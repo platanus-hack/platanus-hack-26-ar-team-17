@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
         picture_url: (user.user_metadata?.avatar_url as string) ?? null,
         dni: null,
         didit_kyc_session_id: kycSession.session_id,
+        didit_kyc_session_url: kycSession.url,
         verification_status: 'PENDING',
       });
       return NextResponse.json(
@@ -75,7 +76,42 @@ export async function POST(req: NextRequest) {
 
   // Existing user, KYC not yet approved.
   if (profile.verification_status !== 'APPROVED') {
-    return NextResponse.json({ error: 'verification_pending' }, { status: 409 });
+    if (profile.didit_kyc_session_url) {
+      return NextResponse.json({
+        mode: 'kyc',
+        verification_url: profile.didit_kyc_session_url,
+        session_id: profile.didit_kyc_session_id,
+      });
+    }
+
+    const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
+    if (!kycWorkflowId) {
+      return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
+    }
+    try {
+      const kycSession = await createVerificationSession({
+        userId: user.id,
+        workflowId: kycWorkflowId,
+        callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=register`,
+      });
+      await supabase
+        .from('users')
+        .update({
+          didit_session_id: kycSession.session_id,
+          didit_session_url: kycSession.url,
+          kyc_status: 'PENDING',
+        })
+        .eq('id', profile.id);
+
+      return NextResponse.json({
+        mode: 'kyc',
+        verification_url: kycSession.url,
+        session_id: kycSession.session_id,
+      });
+    } catch (err) {
+      console.error('login (kyc resume) error:', err);
+      return NextResponse.json({ error: 'internal' }, { status: 500 });
+    }
   }
 
   // Returning approved user → biometric face check only.

@@ -1,10 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
-import { authApi } from '@/lib/api';
 import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
@@ -12,15 +9,13 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 export default function LoginClient() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const router = useRouter();
 
   async function handleGoogleSignIn() {
     setError('');
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/google-callback`,

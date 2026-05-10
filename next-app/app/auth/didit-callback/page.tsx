@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { getProfileByUserId } from '@/lib/services/profile.service';
 import { getLoginAttempt } from '@/lib/services/loginAttempt.service';
 import { issueUserToken } from '@/lib/services/token.service';
 import { APP_SESSION_COOKIE } from '@/lib/cookies';
@@ -46,7 +45,9 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     return (
       <main className="p-8">
         <h1>Almost done</h1>
-        <p>Verification submitted. Once confirmed you'll be redirected to your dashboard.</p>
+        <p data-verification-status>
+          Verification submitted. Once confirmed you will be redirected to your dashboard.
+        </p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('register', session_id) }} />
       </main>
     );
@@ -58,7 +59,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     return (
       <main className="p-8">
         <h1>Almost done</h1>
-        <p>Waiting for verification result…</p>
+        <p data-verification-status>Waiting for verification result...</p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
       </main>
     );
@@ -73,7 +74,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
   return (
     <main className="p-8">
       <h1>Almost done</h1>
-      <p>Waiting for verification result…</p>
+      <p data-verification-status>Waiting for verification result...</p>
       <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
     </main>
   );
@@ -91,7 +92,11 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
         supabaseToken = parsed.access_token || '';
       } catch {}
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 40;
+      const description = document.querySelector('[data-verification-status]');
+      const setStatus = (text) => {
+        if (description) description.textContent = text;
+      };
       const interval = setInterval(async () => {
         attempts++;
         const params = new URLSearchParams({ intent: '${intent}', session_id: '${sessionId}' });
@@ -114,8 +119,12 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
             return;
           }
           if (r.status === 410) { document.body.innerHTML = '<main class="p-8"><h1>Verification failed</h1><p>Please try again.</p></main>'; clearInterval(interval); return; }
+          if (r.status === 202 && attempts > 6) setStatus('Approved by Didit. Waiting for the server to finish syncing...');
         } catch (e) {}
-        if (attempts >= maxAttempts) { clearInterval(interval); }
+        if (attempts >= maxAttempts) {
+          setStatus('Verification is taking longer than expected. Refresh this page in a moment.');
+          clearInterval(interval);
+        }
       }, 1500);
     })();
   `;

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { MeshGradient } from '@paper-design/shaders-react';
 import { Check, Loader2, ShieldCheck, KeyRound, UserRound, ArrowRight, Copy, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { authApi, kycApi, agentsApi } from '@/lib/api';
+import { kycApi, agentsApi } from '@/lib/api';
 import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
@@ -269,7 +269,7 @@ function Step1Account({ onDone }: { onDone: (token: string, userId: string, kyc:
     setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/google-callback`,

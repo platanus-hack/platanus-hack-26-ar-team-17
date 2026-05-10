@@ -11,6 +11,7 @@ jest.mock('@/lib/services/profile.service', () => ({
     kycStatus: 'VERIFIED',
     displayName: 'Test User',
   }),
+  updateProfileFromKycResult: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/lib/services/token.service', () => ({
   issueUserToken: jest.fn().mockResolvedValue('mock.token'),
@@ -18,10 +19,14 @@ jest.mock('@/lib/services/token.service', () => ({
 jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn(), auth: { getUser: jest.fn() } },
 }));
+jest.mock('@/lib/services/didit.service', () => ({
+  getSession: jest.fn(),
+}));
 
 const { getLoginAttempt } = require('@/lib/services/loginAttempt.service');
-const { getProfileByUserId } = require('@/lib/services/profile.service');
+const { getProfileByUserId, updateProfileFromKycResult } = require('@/lib/services/profile.service');
 const { supabase } = require('@/lib/db/supabase');
+const { getSession } = require('@/lib/services/didit.service');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -69,5 +74,25 @@ describe('GET /api/auth/finalize?intent=register', () => {
     getProfileByUserId.mockResolvedValueOnce({ user_id: 'u1', verification_status: 'REJECTED' });
     const res = await finalize(makeReq('intent=register&session_id=s&supabase_access_token=sb'));
     expect(res.status).toBe(410);
+  });
+
+  it('syncs from Didit and returns 200 when local profile is still pending', async () => {
+    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: { id: 'u1' } }, error: null });
+    getProfileByUserId.mockResolvedValueOnce({ user_id: 'u1', verification_status: 'PENDING' });
+    getSession.mockResolvedValueOnce({
+      session_id: 's',
+      status: 'Approved',
+      workflow_id: 'kyc-workflow-id',
+      decision: { kyc: { document_number: '12345678', full_name: 'Ada' } },
+    });
+
+    const res = await finalize(makeReq('intent=register&session_id=s&supabase_access_token=sb'));
+
+    expect(res.status).toBe(200);
+    expect(updateProfileFromKycResult).toHaveBeenCalledWith('u1', {
+      dni: '12345678',
+      full_name: 'Ada',
+      verification_status: 'APPROVED',
+    });
   });
 });
