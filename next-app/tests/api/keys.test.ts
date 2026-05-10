@@ -2,6 +2,12 @@ import { GET, POST } from '@/app/api/keys/route';
 import { DELETE } from '@/app/api/keys/[id]/route';
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+jest.mock('@/lib/services/token.service', () => ({
+  ...jest.requireActual('@/lib/services/token.service'),
+  isTokenRevoked: jest.fn().mockResolvedValue(false),
+}));
 
 jest.mock('@/lib/services/agent.service');
 jest.mock('@/lib/services/profile.service', () => ({
@@ -20,7 +26,7 @@ const { supabase } = require('@/lib/db/supabase');
 
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
 const validToken = jwt.sign(
-  { userId: 'auth_user_1', type: 'user_session' },
+  { userId: 'auth_user_1', type: 'user_session', jti: crypto.randomUUID() },
   JWT_SECRET,
   { expiresIn: '1h' },
 );
@@ -116,6 +122,19 @@ describe('POST /api/keys', () => {
     );
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('kyc_required');
+  });
+
+  it('returns 404 when profile not found', async () => {
+    getProfileByUserId.mockResolvedValue(null);
+    const res = await POST(
+      makeReq('/api/keys', 'POST', { name: 'Agent', scope: ['send_message'] }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 401 without token', async () => {
+    const res = await POST(new NextRequest('http://localhost/api/keys', { method: 'POST' }));
+    expect(res.status).toBe(401);
   });
 });
 

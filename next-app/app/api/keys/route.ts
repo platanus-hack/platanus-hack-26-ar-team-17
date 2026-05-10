@@ -28,7 +28,7 @@ const createBody = z
   });
 
 export async function GET(req: NextRequest) {
-  const authUserId = getAuthUserId(req);
+  const authUserId = await getAuthUserId(req);
   if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const profile = await getProfileByUserId(authUserId);
@@ -66,7 +66,7 @@ type ApiKeyRow = {
 };
 
 export async function POST(req: NextRequest) {
-  const authUserId = getAuthUserId(req);
+  const authUserId = await getAuthUserId(req);
   if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const profile = await getProfileByUserId(authUserId);

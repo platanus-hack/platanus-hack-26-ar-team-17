@@ -6,7 +6,11 @@ import { issueUserToken } from '@/lib/services/token.service';
 import { APP_SESSION_COOKIE } from '@/lib/cookies';
 
 interface SearchParams {
+  // Didit returns these as `verificationSessionId` and `status`.
+  // We accept the snake_case forms as fallbacks for compatibility.
+  verificationSessionId?: string;
   session_id?: string;
+  status?: string;
   intent?: 'register' | 'login';
 }
 
@@ -23,9 +27,14 @@ async function setCookieAndRedirect(userId: string, target: string) {
 }
 
 export default async function DiditCallback({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { session_id, intent } = await searchParams;
+  const params = await searchParams;
+  const session_id = params.verificationSessionId ?? params.session_id;
+  const { intent, status } = params;
   if (!session_id || !intent) {
     return <main className="p-8"><h1>Verification error</h1><p>Missing session.</p></main>;
+  }
+  if (status && status !== 'Approved' && status !== 'In Review') {
+    return <main className="p-8"><h1>Verification failed</h1><p>{status}. Please try again.</p></main>;
   }
 
   if (intent === 'register') {

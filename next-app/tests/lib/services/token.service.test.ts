@@ -22,7 +22,7 @@ jest.mock('@/lib/db/supabase', () => ({
 }));
 
 describe('token.service', () => {
-  const payload = { userId: 'user_1', apiKeyId: 'key_1', scope: ['send_message'] };
+  const payload = { userId: 'user_1', apiKeyId: 'key_1' };
 
   describe('issueToken', () => {
     it('returns a JWT string', async () => {

@@ -34,9 +34,9 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.access_token) startBiometricAuth(data.session.access_token);
-    });
+    // Only auto-trigger after a fresh Google sign-in (button click → OAuth round-trip).
+    // We intentionally do NOT auto-trigger from getSession(); a stale Supabase session
+    // alone shouldn't bypass the button — the user has to actively choose to sign in.
     const sub = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.access_token) {
         startBiometricAuth(session.access_token);

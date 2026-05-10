@@ -88,7 +88,7 @@ export default function DocsPage() {
           <Link href="/login" style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none', padding: '7px 14px', borderRadius: 6 }}>
             Sign in
           </Link>
-          <Link href="/register" style={{ ...mono, fontSize: 12, color: '#050505', textDecoration: 'none', padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', fontWeight: 600 }}>
+          <Link href="/login" style={{ ...mono, fontSize: 12, color: '#050505', textDecoration: 'none', padding: '7px 14px', borderRadius: 6, background: 'var(--accent)', fontWeight: 600 }}>
             Get started →
           </Link>
         </div>
@@ -243,7 +243,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         {/* CTA */}
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 20 }}>Ready to add identity to your agents?</p>
-          <Link href="/register" style={{ ...mono, fontSize: 13, fontWeight: 600, padding: '12px 28px', borderRadius: 8, background: 'var(--accent)', color: '#050505', textDecoration: 'none' }}>
+          <Link href="/login" style={{ ...mono, fontSize: 13, fontWeight: 600, padding: '12px 28px', borderRadius: 8, background: 'var(--accent)', color: '#050505', textDecoration: 'none' }}>
             Create your account →
           </Link>
         </div>

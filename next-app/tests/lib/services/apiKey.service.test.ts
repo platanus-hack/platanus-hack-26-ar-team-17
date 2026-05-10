@@ -89,6 +89,25 @@ describe('validateApiKeyAndHash', () => {
     );
     expect(await validateApiKeyAndHash('disabled-agent', 'h')).toBeNull();
   });
+
+  it('returns null when user hash does not match', async () => {
+    supabase.from.mockReturnValueOnce(
+      selectSingle({
+        data: {
+          id: 'key_4',
+          agent_id: 'agent_4',
+          status: 'ACTIVE',
+          agents: {
+            user_id: 'u',
+            status: 'ACTIVE',
+            users: { hash: 'correct' },
+          },
+        },
+        error: null,
+      }),
+    );
+    expect(await validateApiKeyAndHash('key', 'wrong-hash')).toBeNull();
+  });
 });
 
 describe('createApiKey', () => {
