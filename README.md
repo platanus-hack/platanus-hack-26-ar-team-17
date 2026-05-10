@@ -1,4 +1,4 @@
-# team-17 Platanus Hack 26: Buenos Aires Project
+# team-17 Platanus Hack 26: Buenos Aires Project 😈
 
 **Current project logo:** project-logo.png
 
