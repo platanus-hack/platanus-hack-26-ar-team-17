@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignatureV2 } from '@/lib/services/didit.service';
 import { updateProfileFromKycResult } from '@/lib/services/profile.service';
-import { markLoginAttemptDecision } from '@/lib/services/loginAttempt.service';
+import { getLoginAttempt, markLoginAttemptDecision } from '@/lib/services/loginAttempt.service';
 import { config } from '@/lib/config';
 
 export async function POST(req: NextRequest) {
@@ -31,16 +31,27 @@ export async function POST(req: NextRequest) {
   const isApproved = status === 'Approved';
   const finalStatus = isApproved ? 'APPROVED' : 'REJECTED';
 
-  if (workflow_id === config.DIDIT_KYC_WORKFLOW_ID) {
+  console.log('[webhook] session_id:', session_id, 'workflow_id:', workflow_id, 'status:', status);
+
+  // Check if this session belongs to a login attempt first — takes priority over
+  // workflow_id matching, which breaks when biometric and KYC share the same workflow.
+  const loginAttempt = await getLoginAttempt(session_id);
+  if (loginAttempt) {
+    console.log('[webhook] matched login attempt, marking:', finalStatus);
+    await markLoginAttemptDecision(session_id, finalStatus);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (workflow_id === config.DIDIT_KYC_WORKFLOW_ID || workflow_id === config.DIDIT_WORKFLOW_ID) {
+    console.log('[webhook] matched KYC workflow, updating profile for vendor_data:', vendor_data);
     await updateProfileFromKycResult(vendor_data, {
       dni: isApproved ? (decision?.kyc?.document_number ?? '') : '',
       full_name: isApproved ? (decision?.kyc?.full_name ?? null) : null,
       verification_status: finalStatus,
     });
   } else if (workflow_id === config.DIDIT_BIOMETRIC_WORKFLOW_ID) {
-    await markLoginAttemptDecision(session_id, finalStatus);
+    console.log('[webhook] matched biometric workflow but no login attempt found for session');
   }
-  // Unknown workflows are silently OK'd — Didit retries are bounded.
 
   return NextResponse.json({ ok: true });
 }
