@@ -88,7 +88,7 @@ export async function verifyChallenge(
 
   const { data: agent, error: agentErr } = await supabase
     .from('agents')
-    .select('id, status, public_key, public_key_pqc, did, scope')
+    .select('id, status, public_key, public_key_pqc, did')
     .eq('id', agentId)
     .single();
 
@@ -134,7 +134,7 @@ export async function verifyChallenge(
   }
 
   const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
-  const accessToken = issueAgentSessionToken(agentId, agent.did ?? '', agent.scope ?? []);
+  const accessToken = issueAgentSessionToken(agentId, agent.did ?? '');
 
   const receipt = jwt.sign(
     {

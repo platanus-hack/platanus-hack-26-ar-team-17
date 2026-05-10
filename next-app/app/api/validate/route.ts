@@ -8,7 +8,6 @@ import { writeLog } from '@/lib/services/auditLog.service';
 import { checkRateLimit } from '@/lib/rateLimiter';
 import { config } from '@/lib/config';
 import { checkGlobalRules } from '@/lib/services/rules.service';
-import { verifyScope } from '@/lib/services/scope.service';
 
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
@@ -33,7 +32,6 @@ type KeyRow = {
   id: string;
   agent_id: string;
   status: string;
-  scope: string[] | null;
   agents: {
     user_id: string;
     status: string;
@@ -130,7 +128,7 @@ async function handleLegacy(body: unknown): Promise<NextResponse> {
   const { data } = await supabase
     .from('api_keys')
     .select(
-      'id, agent_id, status, scope, agents!inner(user_id, status, users!inner(hash))',
+      'id, agent_id, status, agents!inner(user_id, status, users!inner(hash))',
     )
     .eq('key_hash', keyHash)
     .single<KeyRow>();
@@ -164,19 +162,6 @@ async function handleLegacy(body: unknown): Promise<NextResponse> {
       userId: data.agents.user_id,
       ...baseLog,
       result: 'BLOCKED_INVALID_KEY',
-    }).catch(() => {});
-    return NextResponse.json({ allowed: false });
-  }
-
-  const scope = Array.isArray(data.scope) ? data.scope : [];
-
-  if (!verifyScope(action, scope)) {
-    void writeLog({
-      agentId: data.agent_id,
-      apiKeyId: data.id,
-      userId: data.agents.user_id,
-      ...baseLog,
-      result: 'BLOCKED_SCOPE',
     }).catch(() => {});
     return NextResponse.json({ allowed: false });
   }

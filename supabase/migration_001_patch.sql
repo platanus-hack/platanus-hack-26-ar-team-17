@@ -33,8 +33,7 @@ alter table agents add column if not exists type text not null default 'agent';
 -- ── api_keys ────────────────────────────────────────────────────────────────
 -- api_keys belong to agents (not users directly)
 alter table api_keys
-  add column if not exists agent_id uuid references agents(id),
-  add column if not exists scope    text[] not null default '{}';
+  add column if not exists agent_id uuid references agents(id);
 
 create index if not exists api_keys_agent_id_idx on api_keys(agent_id);
 

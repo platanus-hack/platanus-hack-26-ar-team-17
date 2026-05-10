@@ -89,7 +89,7 @@ describe('verifyChallenge', () => {
 
     setupVerifyMocks(
       { data: { id: 'chal-1', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false }, error: null },
-      { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, did: 'did:zero:test', scope: ['send_message'] }, error: null },
+      { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, did: 'did:zero:test' }, error: null },
     );
 
     const result = await verifyChallenge('agent-1', 'chal-1', sig);
@@ -123,7 +123,7 @@ describe('verifyChallenge', () => {
     const nonce = 'bad-nonce';
     setupVerifyMocks(
       { data: { id: 'chal-2', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false }, error: null },
-      { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, did: 'did:zero:test', scope: [] }, error: null },
+      { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, did: 'did:zero:test' }, error: null },
     );
     await expect(verifyChallenge('agent-1', 'chal-2', 'a'.repeat(128)))
       .rejects.toMatchObject({ code: 'invalid_signature', status: 401 });
@@ -147,7 +147,7 @@ describe('verifyChallenge', () => {
 
       setupVerifyMocks(
         { data: { id: 'chal-h', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null },
-        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null },
+        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test' }, error: null },
       );
 
       const result = await verifyChallenge('agent-1', 'chal-h', ed25519Sig, pqcSig);
@@ -161,7 +161,7 @@ describe('verifyChallenge', () => {
 
       supabase.from
         .mockReturnValueOnce(makeSelectSingle({ data: { id: 'chal-p', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null }))
-        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null }))
+        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test' }, error: null }))
         .mockReturnValueOnce(makeUpdate());
 
       await expect(verifyChallenge('agent-1', 'chal-p', ed25519Sig))
@@ -176,7 +176,7 @@ describe('verifyChallenge', () => {
 
       supabase.from
         .mockReturnValueOnce(makeSelectSingle({ data: { id: 'chal-q', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null }))
-        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null }))
+        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test' }, error: null }))
         .mockReturnValueOnce(makeUpdate());
 
       await expect(verifyChallenge('agent-1', 'chal-q', ed25519Sig, badPqcSig))
@@ -190,7 +190,7 @@ describe('verifyChallenge', () => {
 
       setupVerifyMocks(
         { data: { id: 'chal-e', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null },
-        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: null, did: 'did:zero:test', scope: [] }, error: null },
+        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: null, did: 'did:zero:test' }, error: null },
       );
 
       const result = await verifyChallenge('agent-1', 'chal-e', sig);

@@ -21,15 +21,10 @@ jest.mock('@/lib/rateLimiter', () => ({ checkRateLimit: jest.fn().mockResolvedVa
 jest.mock('@/lib/services/rules.service', () => ({
   checkGlobalRules: jest.fn().mockResolvedValue({ blocked: false }),
 }));
-jest.mock('@/lib/services/scope.service', () => ({
-  verifyScope: jest.fn().mockReturnValue(true),
-}));
-
 const { supabase } = require('@/lib/db/supabase');
 const { consumeNonce } = require('@/lib/services/nonce.service');
 const { verifyHmacSignature } = require('@/lib/utils/crypto');
 const { writeLog } = require('@/lib/services/auditLog.service');
-const { verifyScope } = require('@/lib/services/scope.service');
 const { checkGlobalRules } = require('@/lib/services/rules.service');
 
 const AGENT_ID = '00000000-0000-4000-8000-000000000001';
@@ -150,7 +145,6 @@ const validRecord = {
   id: 'key_1',
   agent_id: 'agent_1',
   status: 'ACTIVE',
-  scope: ['send_message'],
   agents: {
     user_id: 'user_1',
     status: 'ACTIVE',
@@ -162,7 +156,6 @@ const ACTIVE_API_KEY_DATA = {
   id: 'key-id-001',
   agent_id: AGENT_ID,
   status: 'ACTIVE',
-  scope: ['send_message'],
   agents: { user_id: 'user_1', status: 'ACTIVE', users: { hash: 'sha256-of-user' } },
 };
 
@@ -275,14 +268,6 @@ describe('POST /api/validate (legacy API key path)', () => {
       agents: { ...ACTIVE_API_KEY_DATA.agents, users: { hash: 'wrong-hash' } },
     });
     expect((await (await POST(makeRequest(LEGACY_BODY))).json()).allowed).toBe(false);
-  });
-
-  it('returns allowed false when scope rejects action', async () => {
-    verifyScope.mockReturnValueOnce(false);
-    mockApiKeyLookup(ACTIVE_API_KEY_DATA);
-    const res = await POST(makeRequest(LEGACY_BODY));
-    expect((await res.json()).allowed).toBe(false);
-    expect(writeLog).toHaveBeenCalledWith(expect.objectContaining({ result: 'BLOCKED_SCOPE' }));
   });
 
   it('returns allowed false when global rules block', async () => {

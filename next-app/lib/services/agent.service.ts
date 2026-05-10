@@ -99,7 +99,6 @@ export async function createAgent(params: {
   type: AgentType;
   platform: string;
   keyName?: string;
-  keyScope?: string[];
 }): Promise<{
   agent: Agent;
   key: { id: string; plainKey: string; prefix: string } | null;
@@ -131,7 +130,6 @@ export async function createAgent(params: {
   const key = await createApiKey({
     agentId: agent.id,
     name: params.keyName ?? 'default',
-    scope: params.keyScope ?? [],
   });
   return { agent, key, apiSecret };
 }

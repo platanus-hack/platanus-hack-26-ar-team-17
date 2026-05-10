@@ -7,7 +7,7 @@ interface LogParams {
   userId:     string | null;
   action:     string;
   platform:   string;
-  result:     'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED' | 'AUTH_CHALLENGE_ISSUED' | 'AUTH_SUCCESS' | 'AUTH_FAILED';
+  result:     'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED' | 'AUTH_CHALLENGE_ISSUED' | 'AUTH_SUCCESS' | 'AUTH_FAILED';
   ruleViolated?: string;
   userInput?:  string;
   executedAt?: string; // ISO timestamp from SDK (when agent ran the action)

@@ -2,7 +2,7 @@
 
 create type key_status as enum ('ACTIVE', 'REVOKED');
 create type agent_status as enum ('ACTIVE', 'DISABLED');
-create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED', 'AUTH_CHALLENGE_ISSUED', 'AUTH_SUCCESS', 'AUTH_FAILED');
+create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_RULE', 'BLOCKED_REVOKED', 'AUTH_CHALLENGE_ISSUED', 'AUTH_SUCCESS', 'AUTH_FAILED');
 create type rule_type as enum ('FORBIDDEN_ACTION', 'FORBIDDEN_KEYWORD', 'FORBIDDEN_PATTERN');
 create type kyc_status as enum ('PENDING', 'IN_REVIEW', 'VERIFIED', 'REJECTED');
 
@@ -32,7 +32,6 @@ create table agents (
   name text not null,
   platform text not null,
   type text not null default 'agent' check (type in ('agent', 'mcp')),
-  scope text[] not null default '{}',
   status agent_status not null default 'ACTIVE',
   -- HMAC mode: AES-256-GCM encrypted secret (iv:authTag:ciphertext, all hex)
   secret_enc text,
@@ -51,7 +50,6 @@ create table api_keys (
   name text not null,
   key_hash text unique not null,
   prefix text not null,
-  scope text[] not null default '{}',
   status key_status not null default 'ACTIVE',
   created_at timestamptz default now(),
   revoked_at timestamptz

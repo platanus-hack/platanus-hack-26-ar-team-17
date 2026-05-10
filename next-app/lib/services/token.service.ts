@@ -16,12 +16,11 @@ export interface DecodedToken {
 export interface AgentTokenPayload {
   agentId: string;
   did: string;
-  scopes: string[];
 }
 
-export function issueAgentSessionToken(agentId: string, did: string, scopes: string[]): string {
+export function issueAgentSessionToken(agentId: string, did: string): string {
   const jti = crypto.randomUUID();
-  return jwt.sign({ agentId, did, scopes, jti, type: 'agent_session' }, config.JWT_SECRET, {
+  return jwt.sign({ agentId, did, jti, type: 'agent_session' }, config.JWT_SECRET, {
     expiresIn: '5m',
   });
 }

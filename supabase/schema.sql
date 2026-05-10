@@ -2,7 +2,7 @@
 -- If you already have tables, use migration_001_patch.sql instead.
 
 create type key_status as enum ('ACTIVE', 'REVOKED');
-create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED');
+create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_RULE', 'BLOCKED_REVOKED');
 create type rule_type as enum ('FORBIDDEN_ACTION', 'FORBIDDEN_KEYWORD', 'FORBIDDEN_PATTERN');
 
 create table users (
@@ -34,7 +34,6 @@ create table api_keys (
   name text not null,
   key_hash text unique not null,
   prefix text not null,
-  scope text[] not null default '{}',
   status key_status not null default 'ACTIVE',
   created_at timestamptz default now(),
   revoked_at timestamptz
