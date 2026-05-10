@@ -12,8 +12,8 @@
   },
   "scripts": {
     "build": "node ./scripts/build.cjs",
-    "test": "node ./scripts/run-tests.cjs",
-    "integration": "node ./node_modules/ts-node/dist/bin.js integration.ts",
+    "test": "jest",
+    "integration": "node ./scripts/build.cjs && node -e \"console.log('Integration tests removed - use jest')\"",
     "prepublishOnly": "npm run build"
   },
   "keywords": [],

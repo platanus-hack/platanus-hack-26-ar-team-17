@@ -1,55 +1,30 @@
 import { GET as getAuditLog } from '@/app/api/audit-log/route';
 import { GET as getAlerts } from '@/app/api/alerts/route';
 import { NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 
-jest.mock('@/lib/services/token.service', () => ({
-  ...jest.requireActual('@/lib/services/token.service'),
-  isTokenRevoked: jest.fn().mockResolvedValue(false),
-}));
-
+jest.mock('@/lib/auth', () => ({ getInternalUserId: jest.fn() }));
 jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn() },
 }));
 
-jest.mock('@/lib/auth', () => ({
-  getInternalUserId: jest.fn().mockResolvedValue({ internalId: 'user_1', userHash: null }),
-}));
-
-const { supabase } = require('@/lib/db/supabase');
 const { getInternalUserId } = require('@/lib/auth');
-const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
-const validToken = jwt.sign(
-  { userId: 'user_1', type: 'user_session', jti: crypto.randomUUID() },
-  JWT_SECRET,
-  { expiresIn: '1h' },
-);
+const { supabase } = require('@/lib/db/supabase');
 
 function makeReq(path: string) {
-  return new NextRequest(`http://localhost${path}`, {
-    headers: { Authorization: `Bearer ${validToken}` },
-  });
+  return new NextRequest(`http://localhost${path}`);
 }
 
-function mockQuery(returnData: unknown) {
-  // A chainable query object that resolves at any point
-  const terminal = { data: returnData, error: null };
-  const chainable: Record<string, jest.Mock> = {};
-  const makeMock = (): jest.Mock =>
-    jest.fn().mockImplementation(() => {
-      // Return a new chainable object so callers can keep chaining
-      return new Proxy(terminal, {
-        get(_target, prop) {
-          if (prop === 'then') {
-            // Act as a resolved promise
-            return (resolve: (v: unknown) => void) => resolve(terminal);
-          }
-          return makeMock();
-        },
-      });
-    });
+function mockAuth() {
+  getInternalUserId.mockResolvedValueOnce({ internalId: 'internal_user_1', userHash: null });
+}
 
+beforeEach(() => {
+  jest.clearAllMocks();
+  getInternalUserId.mockResolvedValue(null);
+});
+
+function mockQuery(returnData: unknown) {
+  const terminal = { data: returnData, error: null };
   return {
     select: jest.fn().mockReturnValue({
       eq: jest.fn().mockReturnValue({
@@ -78,6 +53,7 @@ function mockQuery(returnData: unknown) {
 
 describe('GET /api/audit-log', () => {
   it('returns logs for the authenticated user', async () => {
+    mockAuth();
     supabase.from.mockReturnValueOnce(mockQuery([{ id: 'l1', result: 'SUCCESS' }]));
     const res = await getAuditLog(makeReq('/api/audit-log'));
     expect(res.status).toBe(200);
@@ -93,6 +69,7 @@ describe('GET /api/audit-log', () => {
 
 describe('GET /api/alerts', () => {
   it('returns BLOCKED_RULE logs', async () => {
+    mockAuth();
     supabase.from.mockReturnValueOnce({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockReturnValue({
@@ -111,6 +88,7 @@ describe('GET /api/alerts', () => {
 
 describe('GET /api/audit-log — edge cases', () => {
   it('returns empty array when user has no audit logs', async () => {
+    mockAuth();
     supabase.from.mockReturnValueOnce(mockQuery([]));
     const res = await getAuditLog(makeReq('/api/audit-log'));
     expect(res.status).toBe(200);
@@ -118,6 +96,7 @@ describe('GET /api/audit-log — edge cases', () => {
   });
 
   it('accepts keyId filter in query string without error', async () => {
+    mockAuth();
     supabase.from.mockReturnValueOnce(mockQuery([{ id: 'l1', result: 'SUCCESS' }]));
     const res = await getAuditLog(makeReq('/api/audit-log?keyId=k1'));
     expect(res.status).toBe(200);
@@ -126,6 +105,7 @@ describe('GET /api/audit-log — edge cases', () => {
 
 describe('GET /api/alerts — edge cases', () => {
   it('returns empty array when no BLOCKED_RULE logs exist', async () => {
+    mockAuth();
     supabase.from.mockReturnValueOnce({
       select: jest.fn().mockReturnValue({
         eq: jest.fn().mockReturnValue({

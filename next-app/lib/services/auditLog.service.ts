@@ -3,7 +3,7 @@ import { supabase } from '../db/supabase';
 
 interface LogParams {
   agentId:    string | null;
-  apiKeyId:   string | null;
+  apiKeyId?:  string | null;
   userId:     string | null;
   action:     string;
   platform:   string;

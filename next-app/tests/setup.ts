@@ -1,4 +1,5 @@
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://wumucwuoxwpshnlyecog.supabase.co';
+process.env.ENCRYPTION_KEY = 'a'.repeat(64); // 32-byte test key for AES-256-GCM
 process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_shsjs4LzT9q5202G3DE8wA_qJfplCLv';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
 process.env.JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';

@@ -14,7 +14,7 @@ jest.mock('@/lib/services/loginAttempt.service', () => ({
 }));
 jest.mock('@/lib/services/didit.service', () => ({
   createVerificationSession: jest.fn(),
-  getKycPortraitAsBase64: jest.fn().mockResolvedValue('fake-portrait-base64'),
+  getKycPortraitAsBase64: jest.fn().mockResolvedValue('base64encodedportrait'),
 }));
 jest.mock('@/lib/rateLimiter', () => ({
   checkRateLimit: jest.fn().mockResolvedValue(true),
@@ -27,7 +27,7 @@ jest.mock('@/lib/services/token.service', () => ({
 
 const { supabase } = require('@/lib/db/supabase');
 const { getProfileByUserId, createProfile } = require('@/lib/services/profile.service');
-const { createVerificationSession } = require('@/lib/services/didit.service');
+const { createVerificationSession, getKycPortraitAsBase64 } = require('@/lib/services/didit.service');
 const { checkRateLimit } = require('@/lib/rateLimiter');
 const { revokeToken, verifyToken } = require('@/lib/services/token.service');
 
@@ -62,7 +62,7 @@ describe('POST /api/auth/login', () => {
     didit_kyc_session_id: 'kyc_sess_prev',
   };
 
-  it('bootstraps KYC + profile when user has no profile yet', async () => {
+  it('starts KYC and returns 201 for a new (unregistered) user', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce(null);
     createVerificationSession.mockResolvedValueOnce({
@@ -87,7 +87,7 @@ describe('POST /api/auth/login', () => {
     expect(createProfile).toHaveBeenCalled();
   });
 
-  it('creates biometric Didit session when profile is APPROVED', async () => {
+  it('creates a Didit Biometric session for an approved user', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce(approvedProfile);
     createVerificationSession.mockResolvedValueOnce({
@@ -105,11 +105,13 @@ describe('POST /api/auth/login', () => {
       expect.objectContaining({
         userId: 'auth_user_1',
         workflowId: 'bio-workflow-id',
+        callbackUrl: expect.stringContaining('/auth/didit-callback'),
+        portraitImage: 'base64encodedportrait',
       }),
     );
   });
 
-  it('returns 409 when verification still PENDING', async () => {
+  it('returns 409 when verification is still PENDING', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce({
       ...approvedProfile,
@@ -126,13 +128,13 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(429);
   });
 
-  it('returns 401 invalid_token when Supabase rejects', async () => {
+  it('returns 401 when Supabase token is invalid', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: null }, error: { message: 'bad' } });
     const res = await login(makePost('/api/auth/login', { supabase_access_token: 'bad' }));
     expect(res.status).toBe(401);
   });
 
-  it('returns 401 if provider is not google', async () => {
+  it('returns 401 when provider is not google', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({
       data: { user: { ...googleUser, app_metadata: { provider: 'email' } } },
       error: null,

@@ -34,11 +34,27 @@ const validToken = jwt.sign(
   { expiresIn: '1h' },
 );
 
+const AGENT_ID = '00000000-0000-4000-8000-000000000001';
+const agentUuid = '550e8400-e29b-41d4-a716-446655440000';
+
 function makeReq(path: string, method: string, body?: object) {
   return new NextRequest(`http://localhost${path}`, {
     method,
     headers: { Authorization: `Bearer ${validToken}`, 'Content-Type': 'application/json' },
     ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
+function mockKyc(status: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED' | null) {
+  supabase.from.mockReturnValueOnce({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({
+          data: status === null ? null : { id: 'user_1', kyc_status: status },
+          error: null,
+        }),
+      }),
+    }),
   });
 }
 
@@ -86,8 +102,6 @@ describe('GET /api/keys', () => {
 });
 
 describe('POST /api/keys', () => {
-  const agentUuid = '550e8400-e29b-41d4-a716-446655440000';
-
   beforeEach(() => {
     jest.clearAllMocks();
     getInternalUserId.mockResolvedValue({ internalId: 'user_1', userHash: 'uh' });
@@ -187,6 +201,37 @@ describe('POST /api/keys', () => {
   });
 });
 
+describe('POST /api/keys — validation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getInternalUserId.mockResolvedValue({ internalId: 'user_1', userHash: 'uh' });
+  });
+
+  it('returns 400 when name is an empty string', async () => {
+    mockKyc('VERIFIED');
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: AGENT_ID, name: '' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when name exceeds 100 characters', async () => {
+    mockKyc('VERIFIED');
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: AGENT_ID, name: 'a'.repeat(101) }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when agent_id is missing', async () => {
+    mockKyc('VERIFIED');
+    const res = await POST(makeReq('/api/keys', 'POST', { name: 'key' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 403 when user not found in DB', async () => {
+    mockKyc(null);
+    const res = await POST(makeReq('/api/keys', 'POST', { agent_id: AGENT_ID, name: 'ci-key' }));
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('DELETE /api/keys/[id]', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -198,6 +243,13 @@ describe('DELETE /api/keys/[id]', () => {
     const req = makeReq('/api/keys/k1', 'DELETE');
     const res = await DELETE(req, { params: Promise.resolve({ id: 'k1' }) });
     expect(res.status).toBe(200);
+  });
+
+  it('returns 401 without auth token', async () => {
+    getInternalUserId.mockResolvedValueOnce(null);
+    const req = new NextRequest('http://localhost/api/keys/k1', { method: 'DELETE' });
+    const res = await DELETE(req, { params: Promise.resolve({ id: 'k1' }) });
+    expect(res.status).toBe(401);
   });
 });
 
@@ -218,14 +270,5 @@ describe('GET /api/keys — edge cases', () => {
     const res = await GET(makeReq('/api/keys', 'GET'));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
-  });
-});
-
-describe('DELETE /api/keys/[id] — edge cases', () => {
-  it('returns 401 without auth token', async () => {
-    getInternalUserId.mockResolvedValueOnce(null);
-    const req = new NextRequest('http://localhost/api/keys/k1', { method: 'DELETE' });
-    const res = await DELETE(req, { params: Promise.resolve({ id: 'k1' }) });
-    expect(res.status).toBe(401);
   });
 });
