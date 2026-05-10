@@ -430,7 +430,7 @@ export default function DashboardPage() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [reveal, setReveal] = useState<
-    | { kind: 'key'; plainKey: string }
+    | { kind: 'credentials'; agentId: string; apiSecret: string; plainKey?: string }
     | { kind: 'url'; url: string }
     | null
   >(null);
@@ -463,8 +463,13 @@ export default function DashboardPage() {
       const result = await agentsApi.create(token, values);
       if (values.type === 'mcp' && result.agent.mcp_url) {
         setReveal({ kind: 'url', url: result.agent.mcp_url });
-      } else if (result.key) {
-        setReveal({ kind: 'key', plainKey: result.key.plainKey });
+      } else {
+        setReveal({
+          kind: 'credentials',
+          agentId: result.agent.id,
+          apiSecret: result.apiSecret,
+          plainKey: result.key?.plainKey,
+        });
       }
       setShowCreate(false);
       await load();
@@ -518,8 +523,35 @@ export default function DashboardPage() {
       </div>
 
       {/* Reveal banners */}
-      {reveal?.kind === 'key' && (
-        <CopyReveal label="API key" value={reveal.plainKey} mask onDismiss={() => setReveal(null)} />
+      {reveal?.kind === 'credentials' && (
+        <div className="key-reveal fade-in" style={{ marginBottom: 28 }}>
+          <p style={{ ...mono, fontSize: 13, color: 'var(--accent)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span>⬡</span> Agent created — credentials
+            <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>
+              · use these in <code style={{ color: 'var(--text-dim)' }}>X-Zero-Agent-Id</code> + <code style={{ color: 'var(--text-dim)' }}>X-Zero-Api-Secret</code>
+            </span>
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>agent id</p>
+              <InlineCopy value={reveal.agentId} />
+            </div>
+            <div>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api secret (HMAC)</p>
+              <InlineCopy value={reveal.apiSecret} mask />
+            </div>
+            {reveal.plainKey && (
+              <div>
+                <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api key (legacy)</p>
+                <InlineCopy value={reveal.plainKey} mask />
+              </div>
+            )}
+          </div>
+          <button onClick={() => setReveal(null)} style={{
+            ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 14,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          }}>Dismiss</button>
+        </div>
       )}
       {reveal?.kind === 'url' && (
         <CopyReveal label="MCP endpoint" hint="point your MCP client at this URL" value={reveal.url} onDismiss={() => setReveal(null)} />
@@ -667,7 +699,7 @@ export default function DashboardPage() {
                       className="btn btn-secondary"
                       style={{ ...mono, fontSize: 12, padding: '8px 14px' }}
                     >
-                      {isMcp ? (open ? 'hide endpoint' : 'view endpoint') : (open ? 'hide key' : 'view api key')}
+                      {open ? 'hide credentials' : 'view credentials'}
                     </button>
 
                     <Link
@@ -696,39 +728,44 @@ export default function DashboardPage() {
                       padding: '18px 20px',
                       background: 'rgba(0,0,0,0.45)',
                       borderRadius: '0 0 11px 11px',
+                      display: 'flex', flexDirection: 'column', gap: 14,
                     }}>
-                      {isMcp ? (
-                        a.mcp_url ? (
-                          <>
-                            <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-                              mcp endpoint
-                            </p>
-                            <InlineCopy value={a.mcp_url} />
-                          </>
-                        ) : (
-                          <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)' }}>
-                            MCP URL unavailable — verify your identity to receive your user hash.
-                          </p>
-                        )
-                      ) : activeKey ? (
-                        <>
-                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-                            api key — {activeKey.name}
-                          </p>
-                          <InlineCopy
-                            value={activeKey.plain_key ?? `${activeKey.prefix}…`}
-                            mask={!!activeKey.plain_key}
-                          />
-                          {!activeKey.plain_key && (
-                            <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', marginTop: 10, lineHeight: 1.5 }}>
-                              Legacy key — only the prefix is stored. Create a new agent to get a fresh, fully visible key.
-                            </p>
-                          )}
-                        </>
-                      ) : (
-                        <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)' }}>
-                          No active key for this agent yet.
+                      <div>
+                        <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                          agent id <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>· header X-Zero-Agent-Id</span>
                         </p>
+                        <InlineCopy value={a.id} />
+                      </div>
+
+                      {a.api_secret ? (
+                        <div>
+                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                            api secret (HMAC) <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>· header X-Zero-Api-Secret</span>
+                          </p>
+                          <InlineCopy value={a.api_secret} mask />
+                        </div>
+                      ) : (
+                        <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>
+                          API secret unavailable — encryption key missing on the server.
+                        </p>
+                      )}
+
+                      {isMcp && a.mcp_url && (
+                        <div>
+                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                            mcp endpoint
+                          </p>
+                          <InlineCopy value={a.mcp_url} />
+                        </div>
+                      )}
+
+                      {!isMcp && activeKey?.plain_key && (
+                        <div>
+                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                            api key (legacy) — {activeKey.name}
+                          </p>
+                          <InlineCopy value={activeKey.plain_key} mask />
+                        </div>
                       )}
                     </div>
                   )}
