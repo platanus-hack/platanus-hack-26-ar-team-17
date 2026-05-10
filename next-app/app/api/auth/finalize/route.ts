@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { getLoginAttempt } from '@/lib/services/loginAttempt.service';
-import { getProfileByUserId } from '@/lib/services/profile.service';
+import { getProfileByUserId, getSessionFieldsForAuthUser } from '@/lib/services/profile.service';
 import { issueUserToken } from '@/lib/services/token.service';
 import { setSessionCookie } from '@/lib/cookies';
 
@@ -14,7 +14,17 @@ const querySchema = z.object({
 
 async function approveResponse(userId: string): Promise<NextResponse> {
   const token = await issueUserToken(userId);
-  const res = NextResponse.json({ ok: true }, { status: 200 });
+  const fields = await getSessionFieldsForAuthUser(userId);
+  const res = NextResponse.json(
+    {
+      ok: true,
+      token,
+      userId,
+      kycStatus: fields?.kycStatus ?? 'PENDING',
+      displayName: fields?.displayName ?? 'Account',
+    },
+    { status: 200 },
+  );
   setSessionCookie(res, token);
   return res;
 }

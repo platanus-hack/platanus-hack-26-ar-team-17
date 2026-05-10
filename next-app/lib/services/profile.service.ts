@@ -72,6 +72,21 @@ export async function getProfileByUserId(authUserId: string): Promise<Profile | 
   return data ? rowToProfile(data as UsersRow) : null;
 }
 
+/** Campos para persistir sesión en el cliente (cookie + localStorage). */
+export async function getSessionFieldsForAuthUser(
+  authUserId: string,
+): Promise<{ kycStatus: UsersRow['kyc_status']; displayName: string } | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('kyc_status, full_name, email')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { kyc_status: UsersRow['kyc_status']; full_name: string | null; email: string };
+  const displayName = (row.full_name && row.full_name.trim()) || row.email || 'Account';
+  return { kycStatus: row.kyc_status, displayName };
+}
+
 /** Maps Supabase Auth user id → `users.id` (FK target for agents, audit_logs, etc.). */
 export async function resolveInternalUserId(authUserId: string): Promise<string | null> {
   const profile = await getProfileByUserId(authUserId);

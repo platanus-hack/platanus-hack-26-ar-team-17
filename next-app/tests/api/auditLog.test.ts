@@ -2,6 +2,12 @@ import { GET as getAuditLog } from '@/app/api/audit-log/route';
 import { GET as getAlerts } from '@/app/api/alerts/route';
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
+jest.mock('@/lib/services/token.service', () => ({
+  ...jest.requireActual('@/lib/services/token.service'),
+  isTokenRevoked: jest.fn().mockResolvedValue(false),
+}));
 
 jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn() },
@@ -14,9 +20,9 @@ jest.mock('@/lib/services/profile.service', () => ({
 const { supabase } = require('@/lib/db/supabase');
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
 const validToken = jwt.sign(
-  { userId: 'user_1', type: 'user_session' },
+  { userId: 'user_1', type: 'user_session', jti: crypto.randomUUID() },
   JWT_SECRET,
-  { expiresIn: '1h' }
+  { expiresIn: '1h' },
 );
 
 function makeReq(path: string) {

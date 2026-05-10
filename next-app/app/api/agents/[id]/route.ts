@@ -4,7 +4,7 @@ import { disableAgent } from '@/lib/services/agent.service';
 import { resolveInternalUserId } from '@/lib/services/profile.service';
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const authUserId = getAuthUserId(req);
+  const authUserId = await getAuthUserId(req);
   if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const userId = await resolveInternalUserId(authUserId);

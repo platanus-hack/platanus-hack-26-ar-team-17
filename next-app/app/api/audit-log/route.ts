@@ -10,7 +10,13 @@ const querySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
   result: z
-    .enum(['SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_RULE', 'BLOCKED_REVOKED'])
+    .enum([
+      'SUCCESS',
+      'BLOCKED_INVALID_KEY',
+      'BLOCKED_SCOPE',
+      'BLOCKED_RULE',
+      'BLOCKED_REVOKED',
+    ])
     .optional(),
   page: z.coerce.number().min(1).default(1),
 });
@@ -18,7 +24,7 @@ const querySchema = z.object({
 const PAGE_SIZE = 50;
 
 export async function GET(req: NextRequest) {
-  const authUserId = getAuthUserId(req);
+  const authUserId = await getAuthUserId(req);
   if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const userId = await resolveInternalUserId(authUserId);
