@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
@@ -9,6 +9,19 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 export default function LoginClient() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
+
+  // Rescue case: Supabase sometimes lands the user on /login?error=no_code#access_token=...
+  // when the OAuth redirect target is misconfigured. Forward the hash to /auth/callback
+  // so the standard exchange flow can finish (and create the Didit session for new users).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    if (hash && hash.includes('access_token=')) {
+      setForwarding(true);
+      window.location.replace(`/auth/callback${hash}`);
+    }
+  }, []);
 
   async function handleGoogleSignIn() {
     setError('');
@@ -59,12 +72,12 @@ export default function LoginClient() {
 
             <button
               onClick={handleGoogleSignIn}
-              disabled={loading}
+              disabled={loading || forwarding}
               className="btn btn-primary"
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
-              {loading ? 'Signing in…' : ''}
-              {!loading && (
+              {forwarding ? 'Completing sign-in…' : loading ? 'Signing in…' : ''}
+              {!loading && !forwarding && (
                 <>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
