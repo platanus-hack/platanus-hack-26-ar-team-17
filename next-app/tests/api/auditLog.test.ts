@@ -13,11 +13,12 @@ jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn() },
 }));
 
-jest.mock('@/lib/services/profile.service', () => ({
-  resolveInternalUserId: jest.fn().mockResolvedValue('user_1'),
+jest.mock('@/lib/auth', () => ({
+  getInternalUserId: jest.fn().mockResolvedValue({ internalId: 'user_1', userHash: null }),
 }));
 
 const { supabase } = require('@/lib/db/supabase');
+const { getInternalUserId } = require('@/lib/auth');
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
 const validToken = jwt.sign(
   { userId: 'user_1', type: 'user_session', jti: crypto.randomUUID() },
@@ -84,6 +85,7 @@ describe('GET /api/audit-log', () => {
   });
 
   it('returns 401 without token', async () => {
+    getInternalUserId.mockResolvedValueOnce(null);
     const res = await getAuditLog(new NextRequest('http://localhost/api/audit-log'));
     expect(res.status).toBe(401);
   });

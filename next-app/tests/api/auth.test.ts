@@ -14,6 +14,7 @@ jest.mock('@/lib/services/loginAttempt.service', () => ({
 }));
 jest.mock('@/lib/services/didit.service', () => ({
   createVerificationSession: jest.fn(),
+  getKycPortraitAsBase64: jest.fn().mockResolvedValue('fake-portrait-base64'),
 }));
 jest.mock('@/lib/rateLimiter', () => ({
   checkRateLimit: jest.fn().mockResolvedValue(true),
@@ -58,6 +59,7 @@ describe('POST /api/auth/login', () => {
     id: 'p1',
     user_id: 'auth_user_1',
     verification_status: 'APPROVED',
+    didit_kyc_session_id: 'kyc_sess_prev',
   };
 
   it('bootstraps KYC + profile when user has no profile yet', async () => {
