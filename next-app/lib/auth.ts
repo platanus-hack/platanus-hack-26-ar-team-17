@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { config } from './config';
 import { APP_SESSION_COOKIE } from './cookies';
+import { supabase } from './db/supabase';
 
 function verifyUserSession(token: string): string | null {
   try {
@@ -25,4 +26,20 @@ export function getAuthUserId(req: NextRequest): string | null {
     return verifyUserSession(cookieToken);
   }
   return null;
+}
+
+// JWT carries Supabase auth.users.id; most owner-scoped tables FK to our internal users.id.
+// This translates one to the other (and returns null for unauthenticated or unknown users).
+export async function getInternalUserId(
+  req: NextRequest,
+): Promise<{ internalId: string; userHash: string | null } | null> {
+  const authUserId = getAuthUserId(req);
+  if (!authUserId) return null;
+  const { data } = await supabase
+    .from('users')
+    .select('id, hash')
+    .eq('auth_user_id', authUserId)
+    .single<{ id: string; hash: string | null }>();
+  if (!data) return null;
+  return { internalId: data.id, userHash: data.hash };
 }

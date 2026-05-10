@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { MeshGradient } from '@paper-design/shaders-react';
 import { Check, Loader2, ShieldCheck, KeyRound, UserRound, ArrowRight, Copy, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { authApi, kycApi, keysApi } from '@/lib/api';
+import { authApi, kycApi, agentsApi } from '@/lib/api';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
@@ -493,8 +493,9 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
     if (!token) return;
     setCreating(true); setError('');
     try {
-      const result = await keysApi.create(token, { name, platform });
-      setPlainKey(result.plainKey);
+      const result = await agentsApi.create(token, { name, platform, type: 'agent' });
+      if (!result.key) throw new Error('No key returned');
+      setPlainKey(result.key.plainKey);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create key');
     } finally {
