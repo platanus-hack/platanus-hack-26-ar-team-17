@@ -8,13 +8,11 @@ jest.mock('@/lib/db/supabase', () => ({
 jest.mock('@/lib/services/profile.service', () => ({
   getProfileByUserId: jest.fn(),
   createProfile: jest.fn(),
-}));
-jest.mock('@/lib/services/loginAttempt.service', () => ({
-  createPendingLoginAttempt: jest.fn().mockResolvedValue(undefined),
+  updateProfileFromKycResult: jest.fn().mockResolvedValue(undefined),
+  getSessionFieldsForAuthUser: jest.fn().mockResolvedValue({ kycStatus: 'VERIFIED', displayName: 'Ada Lovelace' }),
 }));
 jest.mock('@/lib/services/didit.service', () => ({
   createVerificationSession: jest.fn(),
-  getKycPortraitAsBase64: jest.fn().mockResolvedValue('base64encodedportrait'),
 }));
 jest.mock('@/lib/rateLimiter', () => ({
   checkRateLimit: jest.fn().mockResolvedValue(true),
@@ -26,15 +24,15 @@ jest.mock('@/lib/services/token.service', () => ({
 }));
 
 const { supabase } = require('@/lib/db/supabase');
-const { getProfileByUserId, createProfile } = require('@/lib/services/profile.service');
-const { createVerificationSession, getKycPortraitAsBase64 } = require('@/lib/services/didit.service');
+const { getProfileByUserId, createProfile, updateProfileFromKycResult } = require('@/lib/services/profile.service');
+const { createVerificationSession } = require('@/lib/services/didit.service');
 const { checkRateLimit } = require('@/lib/rateLimiter');
 const { revokeToken, verifyToken } = require('@/lib/services/token.service');
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.DIDIT_MOCK;
   process.env.DIDIT_KYC_WORKFLOW_ID = 'kyc-workflow-id';
-  process.env.DIDIT_BIOMETRIC_WORKFLOW_ID = 'bio-workflow-id';
   process.env.DIDIT_WORKFLOW_ID = 'kyc-workflow-id';
   process.env.SITE_URL = 'http://localhost:3000';
 });
@@ -54,13 +52,29 @@ const googleUser = {
   user_metadata: { full_name: 'Ada Lovelace', avatar_url: 'https://x/y.png', sub: 'gsub' },
 };
 
+const approvedProfile = {
+  id: 'p1',
+  user_id: 'auth_user_1',
+  verification_status: 'APPROVED',
+  didit_kyc_session_id: 'kyc_sess_prev',
+  didit_kyc_session_url: null,
+  full_name: 'Ada Lovelace',
+  dni: null,
+};
+
 describe('POST /api/auth/login', () => {
-  const approvedProfile = {
-    id: 'p1',
-    user_id: 'auth_user_1',
-    verification_status: 'APPROVED',
-    didit_kyc_session_id: 'kyc_sess_prev',
-  };
+  it('issues a direct session token for an already-approved user', async () => {
+    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
+    getProfileByUserId.mockResolvedValueOnce(approvedProfile);
+
+    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mode).toBe('direct');
+    expect(body.token).toBe('mock.user.token');
+    expect(createVerificationSession).not.toHaveBeenCalled();
+  });
 
   it('starts KYC and returns 201 for a new (unregistered) user', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
@@ -79,83 +93,34 @@ describe('POST /api/auth/login', () => {
     expect(body.mode).toBe('kyc');
     expect(body.verification_url).toBe('https://verify/sess_kyc_1');
     expect(createVerificationSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'auth_user_1',
-        workflowId: 'kyc-workflow-id',
-      }),
+      expect.objectContaining({ userId: 'auth_user_1', workflowId: 'kyc-workflow-id' }),
     );
     expect(createProfile).toHaveBeenCalled();
   });
 
-  it('creates a Didit Biometric session for an approved user', async () => {
-    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
-    getProfileByUserId.mockResolvedValueOnce(approvedProfile);
-    createVerificationSession.mockResolvedValueOnce({
-      session_id: 'sess_bio_1',
-      url: 'https://verify/sess_bio_1',
-      status: 'Not Started',
-    });
-
-    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.mode).toBe('biometric');
-    expect(body.verification_url).toBe('https://verify/sess_bio_1');
-    expect(createVerificationSession).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'auth_user_1',
-        workflowId: 'bio-workflow-id',
-        callbackUrl: expect.stringContaining('/auth/didit-callback'),
-        portraitImage: 'base64encodedportrait',
-      }),
-    );
-  });
-
-  it('resumes KYC when verification is still PENDING and a session URL exists', async () => {
-    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
-    getProfileByUserId.mockResolvedValueOnce({
-      ...approvedProfile,
-      verification_status: 'PENDING',
-      didit_kyc_session_id: 'sess_kyc_pending',
-      didit_kyc_session_url: 'https://verify/sess_kyc_pending',
-    });
-    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
-    const body = await res.json();
-    expect(res.status).toBe(200);
-    expect(body.mode).toBe('kyc');
-    expect(body.verification_url).toBe('https://verify/sess_kyc_pending');
-  });
-
-  it('creates a new KYC session when pending verification has no resumable URL', async () => {
+  it('creates a new KYC session for a pending user (old sessions may be expired)', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce({
       ...approvedProfile,
       id: 'internal_user_1',
       verification_status: 'PENDING',
-      didit_kyc_session_id: '',
-      didit_kyc_session_url: null,
+      didit_kyc_session_url: 'https://verify/old_url',
     });
     createVerificationSession.mockResolvedValueOnce({
-      session_id: 'sess_kyc_resume',
-      url: 'https://verify/sess_kyc_resume',
+      session_id: 'sess_kyc_new',
+      url: 'https://verify/sess_kyc_new',
       status: 'Not Started',
     });
     const eq = jest.fn().mockResolvedValue({ error: null });
-    const update = jest.fn(() => ({ eq }));
-    supabase.from.mockReturnValueOnce({ update });
+    supabase.from.mockReturnValueOnce({ update: jest.fn(() => ({ eq })) });
 
     const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
     const body = await res.json();
+
     expect(res.status).toBe(200);
     expect(body.mode).toBe('kyc');
-    expect(body.verification_url).toBe('https://verify/sess_kyc_resume');
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        didit_session_id: 'sess_kyc_resume',
-        didit_session_url: 'https://verify/sess_kyc_resume',
-      }),
-    );
-    expect(eq).toHaveBeenCalledWith('id', 'internal_user_1');
+    expect(body.verification_url).toBe('https://verify/sess_kyc_new');
+    expect(createVerificationSession).toHaveBeenCalled();
   });
 
   it('returns 429 when rate-limited', async () => {
@@ -177,6 +142,50 @@ describe('POST /api/auth/login', () => {
     });
     const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/auth/login (DIDIT_MOCK mode)', () => {
+  beforeEach(() => {
+    process.env.DIDIT_MOCK = 'true';
+  });
+
+  it('auto-approves a new user and issues a direct token without calling Didit', async () => {
+    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
+    getProfileByUserId.mockResolvedValueOnce(null);
+    createProfile.mockResolvedValueOnce({ id: 'p1' });
+
+    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mode).toBe('direct');
+    expect(body.token).toBe('mock.user.token');
+    expect(body.kycStatus).toBe('VERIFIED');
+    expect(createVerificationSession).not.toHaveBeenCalled();
+    expect(createProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ verification_status: 'APPROVED' }),
+    );
+  });
+
+  it('auto-approves a pending user and issues a direct token without calling Didit', async () => {
+    supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
+    getProfileByUserId.mockResolvedValueOnce({
+      ...approvedProfile,
+      verification_status: 'PENDING',
+    });
+
+    const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mode).toBe('direct');
+    expect(body.token).toBe('mock.user.token');
+    expect(createVerificationSession).not.toHaveBeenCalled();
+    expect(updateProfileFromKycResult).toHaveBeenCalledWith(
+      'auth_user_1',
+      expect.objectContaining({ verification_status: 'APPROVED' }),
+    );
   });
 });
 

@@ -6,6 +6,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('15m'),
   ENCRYPTION_KEY: z.string().length(64).optional(), // 32-byte AES-256 key as 64-char hex
+  DIDIT_MOCK: z.string().optional(), // set to any non-empty value to bypass Didit and auto-approve users
   DIDIT_API_KEY: z.string().min(1).optional(),
   DIDIT_API_URL: z.string().url().default('https://verification.didit.me'),
   DIDIT_WORKFLOW_ID: z.string().min(1).optional(),

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { revokeToken, verifyToken } from '@/lib/services/token.service';
-import { getProfileByUserId, createProfile, getSessionFieldsForAuthUser } from '@/lib/services/profile.service';
+import { getProfileByUserId, createProfile, getSessionFieldsForAuthUser, updateProfileFromKycResult } from '@/lib/services/profile.service';
 import { createVerificationSession } from '@/lib/services/didit.service';
 import { clearSessionCookie, setSessionCookie, APP_SESSION_COOKIE } from '@/lib/cookies';
 import { checkRateLimit } from '@/lib/rateLimiter';
@@ -47,6 +47,40 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       kycStatus: fields?.kycStatus ?? 'VERIFIED',
       displayName: fields?.displayName ?? 'Account',
+    });
+    setSessionCookie(res, token);
+    return res;
+  }
+
+  // DIDIT_MOCK: skip KYC entirely and approve the user immediately.
+  // Read process.env directly (not config) so tests can toggle it per-test.
+  if (process.env.DIDIT_MOCK) {
+    if (!profile) {
+      await createProfile({
+        user_id: user.id,
+        email: user.email ?? '',
+        google_sub: (user.user_metadata?.sub as string) ?? null,
+        full_name: (user.user_metadata?.full_name as string) ?? null,
+        picture_url: (user.user_metadata?.avatar_url as string) ?? null,
+        dni: null,
+        didit_kyc_session_id: 'mock',
+        verification_status: 'APPROVED',
+      });
+    } else {
+      await updateProfileFromKycResult(user.id, {
+        dni: profile.dni ?? 'mock',
+        full_name: profile.full_name,
+        verification_status: 'APPROVED',
+      });
+    }
+    const token = await issueUserToken(user.id);
+    const fields = await getSessionFieldsForAuthUser(user.id);
+    const res = NextResponse.json({
+      mode: 'direct',
+      token,
+      userId: user.id,
+      kycStatus: 'VERIFIED',
+      displayName: fields?.displayName ?? user.email ?? 'Account',
     });
     setSessionCookie(res, token);
     return res;
