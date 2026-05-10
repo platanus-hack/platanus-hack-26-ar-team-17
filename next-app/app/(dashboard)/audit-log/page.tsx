@@ -39,7 +39,7 @@ function ResultIcon({ result }: { result: string }) {
     );
   }
   return (
-    <span aria-label="blocked" title={result.replace('BLOCKED_', '').toLowerCase()} style={{
+    <span aria-label="bloqueado" title={result.replace('BLOCKED_', '').toLowerCase()} style={{
       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
       width: 18, height: 18, borderRadius: '50%',
       background: 'rgba(255,92,92,0.12)',
@@ -51,11 +51,11 @@ function ResultIcon({ result }: { result: string }) {
 }
 
 const FILTERS = [
-  { v: '', label: 'All' },
-  { v: 'SUCCESS', label: 'Success' },
-  { v: 'BLOCKED_INVALID_KEY', label: 'Invalid key' },
-  { v: 'BLOCKED_RULE', label: 'Rule blocked' },
-  { v: 'BLOCKED_REVOKED', label: 'Revoked' },
+  { v: '', label: 'Todo' },
+  { v: 'SUCCESS', label: 'Éxito' },
+  { v: 'BLOCKED_INVALID_KEY', label: 'Clave inválida' },
+  { v: 'BLOCKED_RULE', label: 'Regla bloqueada' },
+  { v: 'BLOCKED_REVOKED', label: 'Revocada' },
 ];
 
 const COLS = 'minmax(160px, 180px) minmax(0, 1.5fr) minmax(110px, 130px) 32px minmax(0, 2fr)';
@@ -93,10 +93,10 @@ export default function AuditLogPage() {
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ ...grotesk, fontSize: 26, fontWeight: 600, letterSpacing: '-0.025em', margin: 0, lineHeight: 1.1 }}>
-            Audit log<span style={{ color: 'var(--accent)' }}>.</span>
+            Auditoría<span style={{ color: 'var(--accent)' }}>.</span>
           </h1>
           <p style={{ ...mono, fontSize: 11.5, color: 'var(--text-muted)', margin: '4px 0 0', letterSpacing: '0.02em' }}>
-            All agent actions · {logs.length} entr{logs.length === 1 ? 'y' : 'ies'}
+            Todas las acciones de agentes · {logs.length} registro{logs.length === 1 ? '' : 's'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -128,12 +128,12 @@ export default function AuditLogPage() {
 
       {/* Table */}
       {loading ? (
-        <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center', paddingTop: 40 }}>loading…</p>
+        <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center', paddingTop: 40 }}>cargando...</p>
       ) : logs.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 60 }}>
           <p style={{ fontSize: 36, marginBottom: 12, opacity: 0.18 }}>≡</p>
-          <p style={{ ...grotesk, fontSize: 16, fontWeight: 500, marginBottom: 6, color: 'var(--text-dim)' }}>No logs yet</p>
-          <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)' }}>Agent activity will appear here</p>
+          <p style={{ ...grotesk, fontSize: 16, fontWeight: 500, marginBottom: 6, color: 'var(--text-dim)' }}>Aún no hay registros</p>
+          <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)' }}>La actividad de agentes aparecerá aquí</p>
         </div>
       ) : (
         <div>
@@ -142,11 +142,11 @@ export default function AuditLogPage() {
             display: 'grid', gridTemplateColumns: COLS, gap: 16,
             padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}>
-            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>TIME</span>
-            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>ACTION</span>
-            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>PLATFORM</span>
+            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>HORA</span>
+            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>ACCIÓN</span>
+            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>PLATAFORMA</span>
             <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em', textAlign: 'center' }}> </span>
-            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>INPUT</span>
+            <span style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.14em' }}>ENTRADA</span>
           </div>
 
           {logs.map((log, i) => (
@@ -159,7 +159,7 @@ export default function AuditLogPage() {
               }}
             >
               <span style={{ ...mono, fontSize: 11.5, color: '#fff', letterSpacing: '0.02em' }}>
-                {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                {new Date(log.created_at).toLocaleString('es-AR', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
               </span>
               <span style={{ ...mono, fontSize: 12, color: 'var(--text)', ...cellEllipsis }}>
                 {log.action}
@@ -171,7 +171,7 @@ export default function AuditLogPage() {
                 <ResultIcon result={log.result} />
               </span>
               <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-muted)', ...cellEllipsis }}>
-                {log.user_input ? `"${log.user_input}"` : log.rule_violated ? `rule: ${log.rule_violated}` : '—'}
+                {log.user_input ? `"${log.user_input}"` : log.rule_violated ? `regla: ${log.rule_violated}` : '—'}
               </span>
             </div>
           ))}

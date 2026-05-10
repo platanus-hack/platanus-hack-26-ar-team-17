@@ -30,10 +30,10 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
   const session_id = params.verificationSessionId ?? params.session_id;
   const { intent, status } = params;
   if (!session_id || !intent) {
-    return <main className="p-8"><h1>Verification error</h1><p>Missing session.</p></main>;
+    return <main className="p-8"><h1>Error de verificación</h1><p>Falta la sesión.</p></main>;
   }
   if (status && status !== 'Approved' && status !== 'In Review') {
-    return <main className="p-8"><h1>Verification failed</h1><p>{status}. Please try again.</p></main>;
+    return <main className="p-8"><h1>La verificación falló</h1><p>{status}. Intenta de nuevo.</p></main>;
   }
 
   if (intent === 'register') {
@@ -46,7 +46,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
       <main className="p-8">
         <h1>Almost done</h1>
         <p data-verification-status>
-          Verification submitted. Once confirmed you will be redirected to your dashboard.
+          Verificación enviada. Cuando se confirme, te redirigiremos al panel.
         </p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('register', session_id) }} />
       </main>
@@ -59,7 +59,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     return (
       <main className="p-8">
         <h1>Almost done</h1>
-        <p data-verification-status>Waiting for verification result...</p>
+        <p data-verification-status>Esperando resultado de verificación...</p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
       </main>
     );
@@ -68,13 +68,13 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     await setCookieAndRedirect(attempt.user_id, '/auth/sync-session');
   }
   if (attempt.decision === 'REJECTED') {
-    return <main className="p-8"><h1>Verification failed</h1><p>The face check did not match. Please try again.</p></main>;
+    return <main className="p-8"><h1>La verificación falló</h1><p>La verificación facial no coincidió. Intenta de nuevo.</p></main>;
   }
   // PENDING
   return (
     <main className="p-8">
       <h1>Almost done</h1>
-      <p data-verification-status>Waiting for verification result...</p>
+      <p data-verification-status>Esperando resultado de verificación...</p>
       <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
     </main>
   );
@@ -118,11 +118,11 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
             clearInterval(interval);
             return;
           }
-          if (r.status === 410) { document.body.innerHTML = '<main class="p-8"><h1>Verification failed</h1><p>Please try again.</p></main>'; clearInterval(interval); return; }
-          if (r.status === 202 && attempts > 6) setStatus('Approved by Didit. Waiting for the server to finish syncing...');
+          if (r.status === 410) { document.body.innerHTML = '<main class="p-8"><h1>La verificación falló</h1><p>Intenta de nuevo.</p></main>'; clearInterval(interval); return; }
+          if (r.status === 202 && attempts > 6) setStatus('Aprobado por Didit. Esperando que el servidor termine de sincronizar...');
         } catch (e) {}
         if (attempts >= maxAttempts) {
-          setStatus('Verification is taking longer than expected. Refresh this page in a moment.');
+          setStatus('La verificación está tardando más de lo esperado. Actualiza esta página en un momento.');
           clearInterval(interval);
         }
       }, 1500);

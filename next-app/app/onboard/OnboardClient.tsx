@@ -15,9 +15,9 @@ const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Spa
 type StepId = 1 | 2 | 3;
 
 const STEPS: { id: StepId; title: string; sub: string; Icon: typeof UserRound }[] = [
-  { id: 1, title: 'Account',   sub: 'Your details',         Icon: UserRound },
-  { id: 2, title: 'Identity',  sub: 'Verify itÔÇÖs you',      Icon: ShieldCheck },
-  { id: 3, title: 'First key', sub: 'Issue to an agent',    Icon: KeyRound },
+  { id: 1, title: 'Cuenta', sub: 'Tus datos', Icon: UserRound },
+  { id: 2, title: 'Identidad', sub: 'Verificación humana', Icon: ShieldCheck },
+  { id: 3, title: 'Primera clave', sub: 'Emitir para un agente', Icon: KeyRound },
 ];
 
 const PLATFORMS = [
@@ -70,11 +70,11 @@ export default function OnboardClient() {
           zero<span style={{ color: 'var(--accent)' }}>.</span>
         </Link>
         <Link href="/login" style={{ ...mono, fontSize: 12, color: 'rgba(245,245,245,0.7)', textDecoration: 'none' }}>
-          Already have an account?
+          ¿Ya tienes cuenta?
         </Link>
       </header>
 
-      {/* Shell ÔÇö single column, centered */}
+      {/* Shell: single column, centered */}
       <div style={{
         position: 'relative', zIndex: 1,
         maxWidth: 540, margin: '0 auto',
@@ -116,7 +116,7 @@ export default function OnboardClient() {
           from { opacity: 0; transform: translateY(12px) scale(0.985); filter: blur(8px); }
           to   { opacity: 1; transform: translateY(0)    scale(1);     filter: blur(0); }
         }
-        /* Override the boxy default input look ÔÇö fluid/glass */
+        /* Override the boxy default input look: fluid/glass */
         .onboard-glass .z-input {
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.08);
@@ -139,7 +139,7 @@ export default function OnboardClient() {
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ BACKGROUND ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* BACKGROUND */
 
 function FluidBackground() {
   const [size, setSize] = useState({ w: 1920, h: 1080 });
@@ -176,7 +176,7 @@ function FluidBackground() {
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ STEPPER (horizontal, fluid) ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* STEPPER */
 
 function FluidStepper({ step, onJump }: { step: StepId; onJump: (id: StepId) => void }) {
   const pct = ((step - 1) / (STEPS.length - 1)) * 100;
@@ -253,7 +253,7 @@ function FluidStepper({ step, onJump }: { step: StepId; onJump: (id: StepId) => 
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ STEP 1: GOOGLE SIGN-UP ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* STEP 1: GOOGLE SIGN-UP */
 
 function GoogleGlyph() {
   return (
@@ -282,8 +282,8 @@ function Step1Google() {
         body: JSON.stringify({ supabase_access_token: accessToken }),
       });
       const body = await r.json();
-      if (r.status === 429) { setError('Too many attempts. Please wait a moment.'); setStatus('idle'); triggered.current = false; return; }
-      if (!r.ok) { setError('Sign-up failed.'); setStatus('idle'); triggered.current = false; return; }
+      if (r.status === 429) { setError('Demasiados intentos. Espera un momento.'); setStatus('idle'); triggered.current = false; return; }
+      if (!r.ok) { setError('No se pudo crear la cuenta.'); setStatus('idle'); triggered.current = false; return; }
 
       // Already verified — skip KYC and Didit, go straight to the dashboard.
       if (body.mode === 'direct' && body.token && body.userId) {
@@ -298,11 +298,11 @@ function Step1Google() {
         return;
       }
 
-      if (!body.verification_url) { setError('Sign-up failed.'); setStatus('idle'); triggered.current = false; return; }
+      if (!body.verification_url) { setError('No se pudo crear la cuenta.'); setStatus('idle'); triggered.current = false; return; }
       setStatus('redirecting');
       window.location.href = body.verification_url;
     } catch {
-      setError('Network error.'); setStatus('idle'); triggered.current = false;
+      setError('Error de red.'); setStatus('idle'); triggered.current = false;
     }
   };
 
@@ -335,8 +335,8 @@ function Step1Google() {
   return (
     <Card padding="72px 36px 76px">
       <CardHeader
-        title="Create your account"
-        sub="One click with Google. We'll verify your identity right after."
+        title="Crea tu cuenta"
+        sub="Un clic con Google. Verificaremos tu identidad justo después."
         marginBottom={76}
       />
 
@@ -367,7 +367,7 @@ function Step1Google() {
         }}
       >
         <GoogleGlyph />
-        Continue with Google
+        Continuar con Google
       </button>
 
       {status !== 'idle' && (
@@ -376,9 +376,9 @@ function Step1Google() {
           marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
         }}>
           <Loader2 size={14} className="spin" />
-          {status === 'authenticating' && 'opening googleÔÇª'}
-          {status === 'starting' && 'preparing identity verificationÔÇª'}
-          {status === 'redirecting' && 'redirectingÔÇª'}
+          {status === 'authenticating' && 'abriendo Google...'}
+          {status === 'starting' && 'preparando verificación de identidad...'}
+          {status === 'redirecting' && 'redirigiendo...'}
         </div>
       )}
 
@@ -391,7 +391,7 @@ function Step1Google() {
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ STEP 2: IDENTITY ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* STEP 2: IDENTITY */
 
 function Step2Identity({
   token,
@@ -443,7 +443,7 @@ function Step2Identity({
       onStatusChange('IN_REVIEW');
       window.open(data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start verification');
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar la verificación');
     } finally {
       setStarting(false);
     }
@@ -469,24 +469,24 @@ function Step2Identity({
         </div>
         <div>
           <h2 style={{ ...grotesk, fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', margin: 0 }}>
-            {isVerified ? 'YouÔÇÖre verified' : isReview ? 'VerifyingÔÇª' : isRejected ? 'Verification failed' : 'Verify your identity'}
+            {isVerified ? 'Identidad verificada' : isReview ? 'Verificando...' : isRejected ? 'La verificación falló' : 'Verifica tu identidad'}
           </h2>
           <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>
-            {isVerified ? 'Moving you to the next stepÔÇª'
-              : isReview ? 'Waiting for verification ÔÇö usually under a minute.'
-              : isRejected ? 'Documents werenÔÇÖt accepted. You can try again.'
-              : 'We need to know whoÔÇÖs behind the agents you issue keys to.'}
+            {isVerified ? 'Pasando al siguiente paso...'
+              : isReview ? 'Esperando verificación. Suele tardar menos de un minuto.'
+              : isRejected ? 'Los documentos no fueron aceptados. Puedes intentarlo de nuevo.'
+              : 'Necesitamos saber quién está detrás de los agentes que reciben claves.'}
           </p>
         </div>
       </div>
 
-      {/* Why this matters ÔÇö only when not in progress/done */}
+      {/* Why this matters: only when not in progress/done */}
       {(status === 'PENDING' || status === 'REJECTED') && (
         <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
-            'Cryptographic keys are tied to a verified identity',
-            'Required to issue production-grade API keys',
-            'One-time check ÔÇö under 2 minutes',
+            'Las claves criptográficas quedan asociadas a una identidad verificada',
+            'Requerido para emitir API keys de producción',
+            'Chequeo único, normalmente menos de 2 minutos',
           ].map(t => (
             <li key={t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-dim)' }}>
               <Check size={14} strokeWidth={2.5} style={{ color: 'var(--accent)', flexShrink: 0 }} />
@@ -507,7 +507,7 @@ function Step2Identity({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <span style={{ width: 7, height: 7, borderRadius: 999, background: '#ffb84d', animation: 'pulse 1.6s ease-in-out infinite' }} />
             <span style={{ ...mono, fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
-              auto-checking every 3s
+              revisión automática cada 3 s
             </span>
           </div>
           <div style={{ height: 3, background: 'rgba(255,255,255,0.05)', borderRadius: 999, overflow: 'hidden' }}>
@@ -523,25 +523,25 @@ function Step2Identity({
         {(status === 'PENDING' || status === 'REJECTED') && (
           <button onClick={start} disabled={starting} className="btn btn-primary" style={{ flex: 1, minWidth: 200 }}>
             {starting ? <Loader2 size={14} className="spin" /> : <ShieldCheck size={14} strokeWidth={2.5} />}
-            {starting ? 'StartingÔÇª' : isRejected ? 'Try again' : 'Start verification'}
+            {starting ? 'Iniciando...' : isRejected ? 'Intentar de nuevo' : 'Iniciar verificación'}
           </button>
         )}
 
         {isReview && sessionUrl && (
           <a href={sessionUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ flex: 1, minWidth: 200 }}>
-            <ExternalLink size={14} strokeWidth={2.5} /> Reopen verification window
+            <ExternalLink size={14} strokeWidth={2.5} /> Reabrir ventana de verificación
           </a>
         )}
 
         {isVerified && (
           <button onClick={onDone} className="btn btn-primary" style={{ flex: 1 }}>
-            <ArrowRight size={14} strokeWidth={2.5} /> Continue
+            <ArrowRight size={14} strokeWidth={2.5} /> Continuar
           </button>
         )}
 
         {!isVerified && (
           <button onClick={check} className="btn btn-secondary">
-            <RefreshCw size={13} strokeWidth={2.5} /> Refresh
+            <RefreshCw size={13} strokeWidth={2.5} /> Actualizar
           </button>
         )}
       </div>
@@ -558,10 +558,10 @@ function Step2Identity({
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ STEP 3: FIRST KEY ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* STEP 3: FIRST KEY */
 
 function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => void }) {
-  const [name, setName] = useState('My first agent');
+  const [name, setName] = useState('Mi primer agente');
   const [creating, setCreating] = useState(false);
   const [plainKey, setPlainKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -573,10 +573,10 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
     setCreating(true); setError('');
     try {
       const result = await agentsApi.create(token, { name, platform: 'all', type: 'agent' });
-      if (!result.key) throw new Error('No key returned');
+      if (!result.key) throw new Error('No se devolvió ninguna clave');
       setPlainKey(result.key.plainKey);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create key');
+      setError(err instanceof Error ? err.message : 'No se pudo crear la clave');
     } finally {
       setCreating(false);
     }
@@ -604,10 +604,10 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
           </div>
           <div>
             <h2 style={{ ...grotesk, fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', margin: 0 }}>
-              Your key is ready
+              Tu clave está lista
             </h2>
             <p style={{ ...mono, fontSize: 12, color: '#ffb84d', margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <AlertCircle size={12} /> Copy it now ÔÇö itÔÇÖs shown only once.
+              <AlertCircle size={12} /> Cópiala ahora. Se muestra una sola vez.
             </p>
           </div>
         </div>
@@ -633,12 +633,12 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
               color: copied ? 'var(--accent)' : 'var(--text-dim)',
             }}
           >
-            {copied ? <><Check size={12} strokeWidth={2.5} /> copied</> : <><Copy size={12} strokeWidth={2} /> copy</>}
+            {copied ? <><Check size={12} strokeWidth={2.5} /> copiado</> : <><Copy size={12} strokeWidth={2} /> copiar</>}
           </button>
         </div>
 
         <button onClick={onDone} className="btn btn-primary">
-          Go to dashboard <ArrowRight size={14} strokeWidth={2.5} />
+          Ir al panel <ArrowRight size={14} strokeWidth={2.5} />
         </button>
       </Card>
     );
@@ -647,29 +647,29 @@ function Step3FirstKey({ token, onDone }: { token: string | null; onDone: () => 
   return (
     <Card>
       <CardHeader
-        title="Issue your first key"
-        sub="One key per agent. You can revoke it anytime."
+        title="Emite tu primera clave"
+        sub="Una clave por agente. Puedes revocarla cuando quieras."
       />
       <form onSubmit={create}>
-        <Field label="Key name">
-          <input className="z-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sales Bot" required autoFocus />
+        <Field label="Nombre de la clave">
+          <input className="z-input" value={name} onChange={e => setName(e.target.value)} placeholder="ej. Bot de ventas" required autoFocus />
         </Field>
 
         {error && <ErrorRow message={error} />}
 
-        <PrimaryButton loading={creating} loadingText="Generating keyÔÇª">
-          <KeyRound size={14} strokeWidth={2.5} /> Create key
+        <PrimaryButton loading={creating} loadingText="Generando clave...">
+          <KeyRound size={14} strokeWidth={2.5} /> Crear clave
         </PrimaryButton>
 
         <button type="button" onClick={onDone} className="btn btn-ghost" style={{ width: '100%', marginTop: 8, ...mono, fontSize: 12 }}>
-          Skip for now
+          Omitir por ahora
         </button>
       </form>
     </Card>
   );
 }
 
-/* ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ PRIMITIVES ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ */
+/* PRIMITIVES */
 
 function Card({ children, padding = '44px 36px 40px' }: { children: React.ReactNode; padding?: string }) {
   return (

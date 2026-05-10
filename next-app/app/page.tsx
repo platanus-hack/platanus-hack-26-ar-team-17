@@ -6,7 +6,6 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 export default function Home() {
   return (
     <HeroSection>
-      {/* Nav */}
       <nav
         style={{
           position: 'fixed',
@@ -62,12 +61,11 @@ export default function Home() {
               border: '1px solid rgba(255,255,255,0.14)',
             }}
           >
-            Sign in →
+            Iniciar sesión -&gt;
           </Link>
         </div>
       </nav>
 
-      {/* Center hero text */}
       <div
         style={{
           minHeight: '100vh',
@@ -108,7 +106,7 @@ export default function Home() {
             textShadow: '0 2px 20px rgba(0,0,0,0.5)',
           }}
         >
-          the identity layer for the agentic internet
+          la capa de identidad para la internet agéntica
         </p>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 44 }}>
@@ -126,7 +124,7 @@ export default function Home() {
               boxShadow: '0 0 40px rgba(200,245,66,0.35)',
             }}
           >
-            Get started
+            Empezar
           </Link>
           <Link
             href="/docs"
@@ -142,7 +140,7 @@ export default function Home() {
               backdropFilter: 'blur(8px)',
             }}
           >
-            View SDK docs
+            Ver docs del SDK
           </Link>
         </div>
       </div>

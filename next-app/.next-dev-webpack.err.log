@@ -1,0 +1,8 @@
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\mdcie\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\mdcie\platanus-hack-26-ar-team-17\next-app\package-lock.json
+   * C:\Users\mdcie\platanus-hack-26-ar-team-17\pnpm-lock.yaml
+

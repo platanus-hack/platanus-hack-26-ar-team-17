@@ -10,32 +10,32 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 
 const STATUS_CONFIG: Record<KycStatus, { label: string; pillClass: string; dot: string; heading: string; body: string }> = {
   PENDING: {
-    label: 'Not started',
+    label: 'No iniciada',
     pillClass: 'pill-pending',
     dot: '○',
-    heading: 'Verify your identity',
-    body: 'Before issuing API keys to your agents, we need to verify who you are. This takes under 2 minutes.',
+    heading: 'Verifica tu identidad',
+    body: 'Antes de emitir claves API para tus agentes, necesitamos verificar quién eres. Toma menos de 2 minutos.',
   },
   IN_REVIEW: {
-    label: 'In review',
+    label: 'En revisión',
     pillClass: 'pill-review',
     dot: '◌',
-    heading: 'Verification in progress',
-    body: "We're reviewing your submission. This usually takes a few minutes. You'll be able to create keys once approved.",
+    heading: 'Verificación en curso',
+    body: 'Estamos revisando tu verificación. Suele tomar unos minutos. Podrás crear claves cuando sea aprobada.',
   },
   VERIFIED: {
-    label: 'Verified',
+    label: 'Verificada',
     pillClass: 'pill-verified',
     dot: '●',
-    heading: 'Identity verified',
-    body: "You're all set. You can now issue API keys to your AI agents.",
+    heading: 'Identidad verificada',
+    body: 'Todo listo. Ya puedes emitir claves API para tus agentes de IA.',
   },
   REJECTED: {
-    label: 'Rejected',
+    label: 'Rechazada',
     pillClass: 'pill-rejected',
-    dot: '✕',
-    heading: 'Verification failed',
-    body: 'Your verification was not approved. You can try again — please ensure your documents are valid and readable.',
+    dot: '×',
+    heading: 'La verificación falló',
+    body: 'Tu verificación no fue aprobada. Puedes intentarlo de nuevo; asegúrate de que tus documentos sean válidos y legibles.',
   },
 };
 
@@ -82,7 +82,7 @@ export default function KycClient() {
       setKycStatus('IN_REVIEW');
       window.open(data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start verification');
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar la verificación');
     } finally {
       setStarting(false);
     }
@@ -93,7 +93,6 @@ export default function KycClient() {
   return (
     <main className="auth-page">
       <div className="auth-box fade-in" style={{ maxWidth: 440 }}>
-        {/* Logo */}
         <div className="auth-logo">
           <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 1 }}>
             <span style={{
@@ -108,7 +107,6 @@ export default function KycClient() {
         </div>
 
         <div className="auth-card">
-          {/* Status pill */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
             <span className={`pill-base ${cfg.pillClass}`}>
               <span style={{ animation: status === 'IN_REVIEW' ? 'pulse 2s ease-in-out infinite' : 'none' }}>
@@ -118,7 +116,6 @@ export default function KycClient() {
             </span>
           </div>
 
-          {/* Icon */}
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -136,7 +133,7 @@ export default function KycClient() {
               fontSize: 28,
               marginBottom: 4,
             }}>
-              {status === 'VERIFIED' ? '✓' : status === 'REJECTED' ? '✕' : status === 'IN_REVIEW' ? '⟳' : '◈'}
+              {status === 'VERIFIED' ? '✓' : status === 'REJECTED' ? '×' : status === 'IN_REVIEW' ? '⟳' : '◈'}
             </div>
           </div>
 
@@ -145,21 +142,20 @@ export default function KycClient() {
 
           {error && (
             <div className="form-error" style={{ marginBottom: 16 }}>
-              <span>⚠</span> {error}
+              <span>!</span> {error}
             </div>
           )}
 
-          {/* Actions */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {status === 'VERIFIED' && (
               <button className="btn btn-primary" onClick={() => router.push('/agents')}>
-                Go to dashboard →
+                Ir al panel -&gt;
               </button>
             )}
 
             {(status === 'PENDING' || status === 'REJECTED') && (
               <button className="btn btn-primary" onClick={startVerification} disabled={starting}>
-                {starting ? 'Starting…' : status === 'REJECTED' ? 'Try again →' : 'Start verification →'}
+                {starting ? 'Iniciando...' : status === 'REJECTED' ? 'Intentar de nuevo -&gt;' : 'Iniciar verificación -&gt;'}
               </button>
             )}
 
@@ -171,7 +167,7 @@ export default function KycClient() {
                 className="btn btn-primary"
                 style={{ textAlign: 'center' }}
               >
-                Continue verification ↗
+                Continuar verificación
               </a>
             )}
 
@@ -181,18 +177,17 @@ export default function KycClient() {
                 onClick={checkStatus}
                 disabled={checking}
               >
-                {checking ? 'Checking…' : 'Refresh status'}
+                {checking ? 'Revisando...' : 'Actualizar estado'}
               </button>
             )}
           </div>
 
-          {/* Steps indicator — only for PENDING */}
           {status === 'PENDING' && (
             <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--z-border)' }}>
               {[
-                { n: '1', text: 'Create your account' },
-                { n: '2', text: 'Verify your identity', active: true },
-                { n: '3', text: 'Issue API keys to agents' },
+                { n: '1', text: 'Crea tu cuenta' },
+                { n: '2', text: 'Verifica tu identidad', active: true },
+                { n: '3', text: 'Emite claves API para agentes' },
               ].map(step => (
                 <div key={step.n} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
@@ -224,7 +219,7 @@ export default function KycClient() {
             onClick={() => { localStorage.removeItem('zero_auth'); router.push('/login'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13 }}
           >
-            ← Sign out
+            Cerrar sesión
           </button>
         </p>
       </div>

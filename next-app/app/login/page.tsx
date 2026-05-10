@@ -3,8 +3,8 @@ import { Suspense } from 'react';
 import LoginClient from './LoginClient';
 
 export const metadata: Metadata = {
-  title: 'Sign in',
-  description: 'Sign in to manage your agent identities.',
+  title: 'Iniciar sesión',
+  description: 'Inicia sesión para administrar identidades de agentes.',
 };
 
 export default function LoginPage() {

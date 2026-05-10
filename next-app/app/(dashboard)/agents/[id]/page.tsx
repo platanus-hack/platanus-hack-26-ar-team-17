@@ -61,7 +61,7 @@ function IconPicker({ icon, onChange, accent }: { icon: string; onChange: (next:
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        aria-label="Change icon"
+        aria-label="Cambiar icono"
         style={{
           width: 56, height: 56, borderRadius: 14,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -165,7 +165,7 @@ function CopyBox({ label, value, hint, onDismiss, mask }: {
         {mask && (
           <button
             onClick={() => setHidden(h => !h)}
-            aria-label={hidden ? 'Show' : 'Hide'}
+            aria-label={hidden ? 'Mostrar' : 'Ocultar'}
             style={{
               padding: 10, borderRadius: 999, cursor: 'pointer',
               background: 'rgba(255,255,255,0.04)',
@@ -182,7 +182,7 @@ function CopyBox({ label, value, hint, onDismiss, mask }: {
         )}
         <button
           onClick={copy}
-          aria-label={copied ? 'Copied' : 'Copy'}
+          aria-label={copied ? 'Copiado' : 'Copiar'}
           style={{
             padding: 10, borderRadius: 999, cursor: 'pointer',
             background: copied ? 'rgba(200,245,66,0.1)' : 'rgba(255,255,255,0.04)',
@@ -201,7 +201,7 @@ function CopyBox({ label, value, hint, onDismiss, mask }: {
         <button onClick={onDismiss} style={{
           ...mono, fontSize: 12, color: 'var(--text-faint)', marginTop: 10,
           background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-        }}>Dismiss</button>
+        }}>Cerrar</button>
       )}
     </div>
   );
@@ -215,7 +215,7 @@ function ResultBadge({ result }: { result: string }) {
       padding: '3px 8px', borderRadius: 999,
       background: `${color}11`, color, border: `1px solid ${color}33`,
     }}>
-      {result === 'SUCCESS' ? '✓ success' : result.replace('BLOCKED_', '').toLowerCase()}
+      {result === 'SUCCESS' ? '✓ éxito' : result.replace('BLOCKED_', '').toLowerCase()}
     </span>
   );
 }
@@ -236,7 +236,7 @@ function StatusDot({ status, withLabel = false }: { status: string; withLabel?: 
         boxShadow: active ? '0 0 8px rgba(200,245,66,0.5)' : 'none',
         animation: active ? 'pulse 2s ease-in-out infinite' : 'none',
       }} />
-      {withLabel && <span>{active ? 'active' : s.toLowerCase()}</span>}
+      {withLabel && <span>{active ? 'activo' : s === 'DISABLED' ? 'deshabilitado' : s === 'REVOKED' ? 'revocado' : s.toLowerCase()}</span>}
     </span>
   );
 }
@@ -300,14 +300,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       await load();
     } catch (err: unknown) {
       const e = err as Error & { status?: number };
-      setRotateError(e.message ?? 'Failed to rotate key');
+      setRotateError(e.message ?? 'No se pudo rotar la clave');
     } finally {
       setRotating(false);
     }
   }
 
   async function handleRevoke(keyId: string) {
-    if (!token || !confirm('Revoke this key? This cannot be undone.')) return;
+    if (!token || !confirm('\u00bfRevocar esta clave? Esta acci\u00f3n no se puede deshacer.')) return;
     await keysApi.revoke(token, keyId);
     setKeys(prev => prev.map(k => k.id === keyId ? { ...k, status: 'REVOKED' as const, revoked_at: new Date().toISOString() } : k));
   }
@@ -326,7 +326,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   if (loading) {
     return (
       <div style={{ padding: '40px 56px', maxWidth: 1080, margin: '0 auto' }}>
-        <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)' }}>loading agent…</p>
+        <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)' }}>cargando agente...</p>
       </div>
     );
   }
@@ -334,8 +334,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   if (notFound || !agent) {
     return (
       <div style={{ padding: '40px 56px', maxWidth: 1080, margin: '0 auto' }}>
-        <Link href="/agents" style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none' }}>← Agents</Link>
-        <p style={{ marginTop: 40, fontSize: 16 }}>Agent not found.</p>
+        <Link href="/agents" style={{ ...mono, fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none' }}>← Agentes</Link>
+        <p style={{ marginTop: 40, fontSize: 16 }}>Agente no encontrado.</p>
       </div>
     );
   }
@@ -371,11 +371,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               {agent.name}
             </h1>
             <div style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginTop: 8, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', letterSpacing: '0.02em' }}>
-              <span>{isMcp ? 'mcp' : 'agent'}</span>
+              <span>{isMcp ? 'mcp' : 'agente'}</span>
               <span style={{ opacity: 0.3 }}>·</span>
               <span>{agent.platform}</span>
               <span style={{ opacity: 0.3 }}>·</span>
-              <span>created {new Date(agent.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span>creado {new Date(agent.created_at).toLocaleDateString('es-AR', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
           </div>
         </div>
@@ -387,7 +387,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               className="btn btn-danger"
               style={{ ...mono, fontSize: 13, padding: '10px 20px' }}
             >
-              Disable
+              Deshabilitar
             </button>
           )}
         </div>
@@ -397,35 +397,35 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Newly rotated key reveal (toast-like, only when present) */}
       {revealedKey && (
-        <CopyBox label="New API key" value={revealedKey} mask onDismiss={() => setRevealedKey(null)} />
+        <CopyBox label="Nueva API key" value={revealedKey} mask onDismiss={() => setRevealedKey(null)} />
       )}
 
       {/* Credentials / Endpoint */}
       <section>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
-          <p style={sectionLabel}>{isMcp ? 'endpoint' : 'credentials'}</p>
+          <p style={sectionLabel}>{isMcp ? 'endpoint' : 'credenciales'}</p>
           {!isMcp && isActive && (
             <button
               onClick={() => { setShowRotate(true); setRotateError(''); setRotateName(''); }}
               className="btn btn-secondary"
               style={{ ...mono, fontSize: 12, padding: '8px 16px' }}
             >
-              Rotate key
+              Rotar clave
             </button>
           )}
         </div>
 
         {isMcp ? (
           agent.mcp_url ? (
-            <CopyBox label="MCP endpoint" hint="point your MCP client at this URL" value={agent.mcp_url} />
+            <CopyBox label="Endpoint MCP" hint="apunta tu cliente MCP a esta URL" value={agent.mcp_url} />
           ) : (
             <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', padding: '16px 0' }}>
-              MCP URL unavailable — verify your identity to receive your user hash.
+              URL MCP no disponible. Verifica tu identidad para recibir tu hash de usuario.
             </p>
           )
         ) : keys.length === 0 ? (
           <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', padding: '16px 0' }}>
-            No keys yet — rotate to create one.
+            Aún no hay claves. Rota para crear una.
           </p>
         ) : (
           <div>
@@ -446,7 +446,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-faint)' }}>{key.name}</span>
                   </div>
                   <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-muted)', minWidth: 78, textAlign: 'right', letterSpacing: '0.02em' }}>
-                    {new Date(key.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {new Date(key.created_at).toLocaleDateString('es-AR', { month: 'short', day: 'numeric' })}
                   </span>
                   <div style={{ width: 84, display: 'flex', justifyContent: 'flex-end' }}>
                     {keyActive && (
@@ -455,7 +455,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                         className="btn btn-danger"
                         style={{ ...mono, fontSize: 11.5, padding: '6px 14px' }}
                       >
-                        revoke
+                        revocar
                       </button>
                     )}
                   </div>
@@ -467,7 +467,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
         {!isMcp && activeKeys.length === 0 && keys.length > 0 && isActive && (
           <p style={{ ...mono, fontSize: 11.5, color: '#ffb84d', marginTop: 12, opacity: 0.8 }}>
-            no active keys — rotate to keep this agent reachable
+            no hay claves activas. Rota una clave para mantener alcanzable este agente
           </p>
         )}
       </section>
@@ -477,7 +477,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       {/* Recent activity */}
       <section>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
-          <p style={sectionLabel}>recent activity</p>
+          <p style={sectionLabel}>actividad reciente</p>
           {logs.length > 0 && (
             <Link
               href={`/audit-log?agentId=${agent.id}`}
@@ -485,14 +485,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-dim)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
             >
-              view all →
+              ver todo →
             </Link>
           )}
         </div>
 
         {logs.length === 0 ? (
           <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', padding: '16px 0' }}>
-            No activity yet
+            Aún no hay actividad
           </p>
         ) : (
           <div>
@@ -506,7 +506,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 }}
               >
                 <span style={{ ...mono, fontSize: 11.5, color: '#fff', letterSpacing: '0.02em' }}>
-                  {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(log.created_at).toLocaleString('es-AR', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <span style={{ ...mono, fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {log.action}
@@ -523,19 +523,19 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowRotate(false)}>
           <div className="modal-box fade-in">
             <h2 style={{ ...grotesk, fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em', marginBottom: 8 }}>
-              Rotate key
+              Rotar clave
             </h2>
             <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', marginBottom: 22, lineHeight: 1.55 }}>
-              Adds a new key for <span style={{ color: 'var(--text-dim)' }}>{agent.name}</span>. Revoke old keys when ready.
+              Agrega una nueva clave para <span style={{ color: 'var(--text-dim)' }}>{agent.name}</span>. Revoca las claves viejas cuando estés listo.
             </p>
             <form onSubmit={handleRotate}>
               <div className="field">
-                <label className="field-label">Key name</label>
+                <label className="field-label">Nombre de la clave</label>
                 <input
                   className="z-input"
                   value={rotateName}
                   onChange={e => setRotateName(e.target.value)}
-                  placeholder="e.g. rotation-2026-05"
+                  placeholder="ej. rotacion-2026-05"
                   required
                   autoFocus
                 />
@@ -547,10 +547,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               )}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setShowRotate(false)} className="btn btn-secondary" style={{ flex: 1, ...mono }}>
-                  Cancel
+                  Cancelar
                 </button>
                 <button type="submit" disabled={rotating} className="btn btn-primary" style={{ flex: 2, ...mono }}>
-                  {rotating ? 'Rotating…' : 'Rotate'}
+                  {rotating ? 'Rotando...' : 'Rotar'}
                 </button>
               </div>
             </form>
@@ -563,14 +563,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDisable(false)}>
           <div className="modal-box fade-in">
             <h2 style={{ ...grotesk, fontSize: 19, fontWeight: 600, letterSpacing: '-0.03em', marginBottom: 6 }}>
-              Disable agent
+              Deshabilitar agente
             </h2>
             <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.6 }}>
-              This revokes <span style={{ color: 'var(--text-dim)' }}>all keys</span> for this agent and stops it from validating.
-              Audit history is preserved.
+              Esto revoca <span style={{ color: 'var(--text-dim)' }}>todas las claves</span> de este agente y evita que siga validando.
+              El historial de auditoría se conserva.
             </p>
             <p style={{ ...mono, fontSize: 13, color: 'var(--text-faint)', marginBottom: 10 }}>
-              Type <span style={{ color: 'var(--text-dim)' }}>{agent.name}</span> to confirm:
+              Escribe <span style={{ color: 'var(--text-dim)' }}>{agent.name}</span> para confirmar:
             </p>
             <div className="field">
               <input
@@ -583,7 +583,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button type="button" onClick={() => setShowDisable(false)} className="btn btn-secondary" style={{ flex: 1, ...mono }}>
-                Cancel
+                Cancelar
               </button>
               <button
                 type="button"
@@ -592,7 +592,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 className="btn btn-danger"
                 style={{ flex: 2, ...mono }}
               >
-                {disabling ? 'Disabling…' : 'Disable agent'}
+                {disabling ? 'Deshabilitando...' : 'Deshabilitar agente'}
               </button>
             </div>
           </div>

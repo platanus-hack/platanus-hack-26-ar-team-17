@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Zero — The license plate for AI agents';
+export const alt = 'Zero - La patente de los agentes de IA';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -212,10 +212,10 @@ export default function OpengraphImage() {
                 flexDirection: 'column',
               }}
             >
-              <div style={{ display: 'flex' }}>The license plate</div>
+              <div style={{ display: 'flex' }}>La patente</div>
               <div style={{ display: 'flex' }}>
                 for{' '}
-                <span style={{ color: ACCENT, marginLeft: 16 }}>AI agents.</span>
+                <span style={{ color: ACCENT, marginLeft: 16 }}>agentes de IA.</span>
               </div>
             </div>
 
@@ -267,8 +267,8 @@ export default function OpengraphImage() {
               display: 'flex',
             }}
           >
-            Identity, permissions and accountability for the Internet of
-            Agents.
+            Identidad, permisos y accountability para la Internet de
+            Agentes.
           </div>
           <div
             style={{

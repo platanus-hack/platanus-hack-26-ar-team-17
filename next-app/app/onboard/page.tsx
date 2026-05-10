@@ -3,8 +3,8 @@ import { Suspense } from 'react';
 import OnboardClient from './OnboardClient';
 
 export const metadata: Metadata = {
-  title: 'Get started',
-  description: 'Create your Zero account, verify your identity, and issue your first agent key.',
+  title: 'Empezar',
+  description: 'Crea tu cuenta de Zero, verifica tu identidad y emite la primera credencial de tu agente.',
 };
 
 export default function OnboardPage() {
