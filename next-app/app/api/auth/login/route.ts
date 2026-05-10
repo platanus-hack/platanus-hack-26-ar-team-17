@@ -114,18 +114,13 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Returning approved user → biometric face check only.
-  // Falls back to KYC workflow if no dedicated biometric workflow is configured.
-  const biometricWorkflowId =
-    config.DIDIT_BIOMETRIC_WORKFLOW_ID ?? config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
-  if (!biometricWorkflowId) {
-    return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_BIOMETRIC_WORKFLOW_ID' }, { status: 500 });
-  }
+  // Returning approved user → try biometric face check.
+  // If portrait is unavailable or biometric workflow not configured, fall back to KYC.
+  const biometricWorkflowId = config.DIDIT_BIOMETRIC_WORKFLOW_ID;
+  const kycWorkflowId = config.DIDIT_KYC_WORKFLOW_ID ?? config.DIDIT_WORKFLOW_ID;
 
-  // Didit requires a portrait_image for biometric face match. Pull the one
-  // captured during the user's original KYC and pass it base64-encoded.
   let portraitImage: string | undefined;
-  if (profile.didit_kyc_session_id) {
+  if (biometricWorkflowId && profile.didit_kyc_session_id) {
     try {
       const fetched = await getKycPortraitAsBase64(profile.didit_kyc_session_id);
       if (fetched) portraitImage = fetched;
@@ -133,27 +128,46 @@ export async function POST(req: NextRequest) {
       console.error('failed to fetch KYC portrait for biometric session:', err);
     }
   }
-  if (!portraitImage) {
-    return NextResponse.json({ error: 'portrait_unavailable' }, { status: 500 });
+
+  // Biometric path: only when we have both a biometric workflow and a portrait.
+  if (biometricWorkflowId && portraitImage) {
+    try {
+      const session = await createVerificationSession({
+        userId: user.id,
+        workflowId: biometricWorkflowId,
+        callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
+        portraitImage,
+      });
+      await createPendingLoginAttempt(session.session_id, user.id);
+      return NextResponse.json({
+        mode: 'biometric',
+        verification_url: session.url,
+        session_id: session.session_id,
+      });
+    } catch (err) {
+      console.error('login (biometric) error:', err);
+      // fall through to KYC
+    }
   }
 
+  // KYC fallback: re-verify identity when biometric is unavailable.
+  if (!kycWorkflowId) {
+    return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_KYC_WORKFLOW_ID' }, { status: 500 });
+  }
   try {
-    const session = await createVerificationSession({
+    const kycSession = await createVerificationSession({
       userId: user.id,
-      workflowId: biometricWorkflowId,
+      workflowId: kycWorkflowId,
       callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
-      portraitImage,
     });
-
-    await createPendingLoginAttempt(session.session_id, user.id);
-
+    await createPendingLoginAttempt(kycSession.session_id, user.id);
     return NextResponse.json({
-      mode: 'biometric',
-      verification_url: session.url,
-      session_id: session.session_id,
+      mode: 'kyc',
+      verification_url: kycSession.url,
+      session_id: kycSession.session_id,
     });
   } catch (err) {
-    console.error('login (biometric) error:', err);
+    console.error('login (kyc fallback) error:', err);
     return NextResponse.json({ error: 'internal' }, { status: 500 });
   }
 }
