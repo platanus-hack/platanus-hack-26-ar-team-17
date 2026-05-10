@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { getLoginAttempt } from '@/lib/services/loginAttempt.service';
 import {
+  getProfileByDiditSessionId,
   getProfileByUserId,
   getSessionFieldsForAuthUser,
   updateProfileFromKycResult,
@@ -75,23 +76,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: 'pending' }, { status: 202 });
   }
 
-  // intent === 'register' — needs the Supabase token to identify the user
-  if (!parsed.data.supabase_access_token) {
+  // intent === 'register'
+  // Resolve the auth user id from one of: didit session id (preferred — survives
+  // localStorage loss), or the Supabase access token (fallback for older callers).
+  let authUserId: string | null = null;
+
+  const profileBySession = await getProfileByDiditSessionId(parsed.data.session_id);
+  if (profileBySession?.user_id) {
+    authUserId = profileBySession.user_id;
+  } else if (parsed.data.supabase_access_token) {
+    const { data: userResult, error } = await supabase.auth.getUser(parsed.data.supabase_access_token);
+    if (error || !userResult?.user) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
+    authUserId = userResult.user.id;
+  } else {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
   }
-  const { data: userResult, error } = await supabase.auth.getUser(parsed.data.supabase_access_token);
-  if (error || !userResult?.user) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
 
-  const profile = await getProfileByUserId(userResult.user.id);
+  const profile = profileBySession ?? (await getProfileByUserId(authUserId));
   if (!profile) {
-    console.warn('[finalize] no profile found for user:', userResult.user.id);
+    console.warn('[finalize] no profile found for user:', authUserId);
     return NextResponse.json({ status: 'pending' }, { status: 202 });
   }
   if (profile.verification_status === 'APPROVED') return approveResponse(profile.user_id);
   if (profile.verification_status === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
 
-  const syncedStatus = await syncKycStatusFromDidit(parsed.data.session_id, userResult.user.id);
-  if (syncedStatus === 'APPROVED') return approveResponse(userResult.user.id);
+  const syncedStatus = await syncKycStatusFromDidit(parsed.data.session_id, authUserId);
+  if (syncedStatus === 'APPROVED') return approveResponse(authUserId);
   if (syncedStatus === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
 
   return NextResponse.json({ status: 'pending' }, { status: 202 });

@@ -75,6 +75,15 @@ export async function getProfileByUserId(authUserId: string): Promise<Profile | 
   return data ? rowToProfile(data as UsersRow) : null;
 }
 
+export async function getProfileByDiditSessionId(sessionId: string): Promise<Profile | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('*')
+    .eq('didit_session_id', sessionId)
+    .maybeSingle();
+  return data ? rowToProfile(data as UsersRow) : null;
+}
+
 /** Campos para persistir sesión en el cliente (cookie + localStorage). */
 export async function getSessionFieldsForAuthUser(
   authUserId: string,
