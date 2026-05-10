@@ -1,6 +1,6 @@
 # zero.
 
-> The identity layer for the agentic internet
+> La capa de identidad para la internet de agentes
 
 <img src="./project-logo.png" alt="zero. logo" width="180" />
 
@@ -8,13 +8,13 @@
 
 ---
 
-## The Problem
+## El problema
 
-AI agents are acting on real systems: WhatsApp, MCP servers, wallets, CRMs, internal APIs. But the web still treats them as anonymous processes: a loose API key, a bot token, a borrowed `user_id`. When something goes wrong, the trail ends at "the agent did it." That is not enough for a world where agents buy, publish, move sensitive data, and coordinate across services.
+Los agentes de IA estan actuando sobre sistemas reales: WhatsApp, servidores MCP, billeteras, CRMs, APIs internas. Pero la web todavia los trata como procesos anonimos: una API key suelta, un bot token, un `user_id` prestado. Cuando algo sale mal, el rastro termina en "el agente lo hizo". Eso no alcanza para un mundo donde los agentes compran, publican, mueven datos sensibles y coordinan acciones entre servicios.
 
-## What zero. does
+## Que hace zero.
 
-Zero puts a cryptographic license plate on every agent before it touches the real world. One call before every side effect:
+Zero pone una patente criptografica en cada agente antes de que toque el mundo real. Una sola llamada antes de cada side effect:
 
 ```ts
 const auth = await zero.run();
@@ -26,74 +26,75 @@ if (!auth.allowed) {
 await performRealAction();
 ```
 
-- **HMAC-SHA256** signatures with nonce + timestamp (replay-proof, secret never transmitted)
-- **Ed25519 challenge-response**: the agent's private key never leaves its runtime.
-  The server issues a one-time challenge; the agent signs `challengeId|nonce|agentId` locally
-  and sends only the signature. Each challenge expires in 60 seconds and is single-use,
-  so replay attacks are impossible.
-- **Post-quantum layer (ML-DSA-65)**: Ed25519 is secure against classical computers, but a
-  sufficiently powerful quantum computer could break elliptic-curve signatures via Shor's
-  algorithm. zero. supports an optional second signature using ML-DSA-65 (formerly Dilithium 3),
-  a NIST-standardized lattice-based algorithm resistant to quantum attacks. When
-  `ZERO_PRIVATE_KEY_PQC` is set, both signatures are computed and verified independently -
-  either one failing blocks the request. This makes zero. ready for a post-quantum future
-  without breaking existing integrations.
-- **Scope-based authorization** per agent (allowed actions defined at registration)
-- **Tamper-evident audit log**: SHA-256 checksum chain across all entries
-- **Instant revocation**: disable an agent; all future calls are blocked immediately
-- **Rate limiting**: 30 req/60s per IP, backed by Postgres (no Redis required)
+- **HMAC-SHA256** con nonce + timestamp (anti-replay, el secreto nunca viaja por la red)
+- **Ed25519 challenge-response**: la clave privada del agente nunca sale de su runtime.
+  El servidor emite un challenge de un solo uso; el agente firma `challengeId|nonce|agentId`
+  localmente y envia solo la firma. Cada challenge expira en 60 segundos y es de uso unico,
+  por lo que los ataques de replay son imposibles.
+- **Capa post-cuantica (ML-DSA-65)**: Ed25519 es seguro contra computadoras clasicas, pero
+  una computadora cuantica suficientemente potente podria romper las firmas de curva eliptica
+  mediante el algoritmo de Shor. zero. soporta una segunda firma opcional usando ML-DSA-65
+  (antes conocido como Dilithium 3), un algoritmo basado en reticulados estandarizado por NIST
+  que es resistente a ataques cuanticos. Cuando se configura `ZERO_PRIVATE_KEY_PQC`, ambas
+  firmas se computan y verifican de forma independiente - si cualquiera de las dos falla, la
+  solicitud es bloqueada. Esto hace que zero. este preparado para un futuro post-cuantico sin
+  romper las integraciones existentes.
+- **Autorizacion por scope** por agente (acciones permitidas definidas en el registro)
+- **Audit log a prueba de manipulacion**: cadena de checksums SHA-256 en cada entrada
+- **Revocacion instantanea**: deshabilitar un agente bloquea todas las llamadas futuras de inmediato
+- **Rate limiting**: 30 req/60s por IP, respaldado por Postgres (sin Redis)
 
 ---
 
-## Architecture
+## Arquitectura
 
-| Component | What it does | Stack |
+| Componente | Que hace | Stack |
 |---|---|---|
-| **Landing + Onboard** (root) | Marketing page + 7-step KYC identity wizard | Next.js 16, React 19, shadcn/ui, Tailwind v4 |
-| **Platform API** (`next-app/`) | REST API: agents, keys, validation, audit log | Next.js 16, Supabase (PostgreSQL), JWT |
-| **Agent SDK** (`sdk/`) | `@zero-gate/sdk`, embedded in MCP servers | Node.js 18+, TypeScript, native `crypto` |
-| **CLI** (`cli/`) | `@zero-gate/cli`, provision agents from terminal | Node.js, TypeScript |
+| **Landing + Onboard** (raiz) | Pagina de marketing + wizard de verificacion KYC de 7 pasos | Next.js 16, React 19, shadcn/ui, Tailwind v4 |
+| **Platform API** (`next-app/`) | API REST: agentes, claves, validacion, audit log | Next.js 16, Supabase (PostgreSQL), JWT |
+| **Agent SDK** (`sdk/`) | `@zero-gate/sdk`, embebido en servidores MCP | Node.js 18+, TypeScript, `crypto` nativo |
+| **CLI** (`cli/`) | `@zero-gate/cli`, provision de agentes desde la terminal | Node.js, TypeScript |
 
 ---
 
-## How It Works
+## Como funciona
 
-1. **Human registers** on zero. and completes KYC verification (via Didit biometric + document check)
-2. **Human creates an agent** (name, platform, scope) and receives credentials once
-3. **Credentials are injected** into the agent's environment (`ZERO_AGENT_ID` + `ZERO_API_SECRET`)
-4. **Agent reasons** and decides to call an MCP tool
-5. **Agent calls the MCP server**
-6. **MCP server calls `zero.run()`** before executing any side effect
-7. **SDK signs** the request with HMAC-SHA256, POSTs to `/api/validate`
-8. **Platform validates:** rate limit → signature verify → nonce replay check → scope check → global rules → audit log
-9. **SDK returns** `{ allowed: true, token }` or `{ allowed: false }`
-10. **MCP server executes the tool** only if allowed; otherwise rejects
+1. **El humano se registra** en zero. y completa la verificacion KYC (biometria + documento via Didit)
+2. **El humano crea un agente** (nombre, plataforma, scope) y recibe las credenciales una sola vez
+3. **Las credenciales se inyectan** en el entorno del agente (`ZERO_AGENT_ID` + `ZERO_API_SECRET`)
+4. **El agente razona** y decide llamar a una herramienta MCP
+5. **El agente llama al servidor MCP**
+6. **El servidor MCP llama a `zero.run()`** antes de ejecutar cualquier side effect
+7. **El SDK firma** la solicitud con HMAC-SHA256 y hace POST a `/api/validate`
+8. **La plataforma valida:** rate limit -> verificacion de firma -> anti-replay de nonce -> scope -> reglas globales -> audit log
+9. **El SDK retorna** `{ allowed: true, token }` o `{ allowed: false }`
+10. **El servidor MCP ejecuta la herramienta** solo si esta permitido; de lo contrario rechaza
 
 ---
 
-## Quick Start
+## Inicio rapido
 
-### Try the live platform
+### Probar la plataforma en vivo
 
-Visit [platanus-hack-26-ar-team-17.vercel.app](https://platanus-hack-26-ar-team-17.vercel.app/), register, and create your first agent from the dashboard.
+Visita [platanus-hack-26-ar-team-17.vercel.app](https://platanus-hack-26-ar-team-17.vercel.app/), registrate y crea tu primer agente desde el dashboard.
 
-### Install the CLI
+### Instalar el CLI
 
 ```sh
 npm install -g https://github.com/platanus-hack/platanus-hack-26-ar-team-17/raw/main/cli/zero-gate-cli-0.1.0.tgz
 
-zero login                    # paste your CLI token from the dashboard
-zero agents create my-bot     # creates an agent, prints credentials
+zero login                    # pega tu CLI token desde el dashboard
+zero agents create mi-bot     # crea un agente e imprime las credenciales
 zero agents list
 ```
 
-### Add the SDK to your MCP server
+### Agregar el SDK a tu servidor MCP
 
 ```sh
-zero init    # installs @zero-gate/sdk and scaffolds .env.local
+zero init    # instala @zero-gate/sdk y genera el .env.local
 ```
 
-Or manually:
+O manualmente:
 
 ```sh
 npm install @zero-gate/sdk
@@ -104,83 +105,83 @@ import { ZeroGateSDK } from '@zero-gate/sdk';
 
 const zero = new ZeroGateSDK();
 
-// Call this inside every MCP tool handler before the side effect:
+// Llamar dentro de cada handler de herramienta MCP, antes del side effect:
 const { allowed } = await zero.run();
-if (!allowed) throw new Error('Unauthorized by zero.');
+if (!allowed) throw new Error('No autorizado por zero.');
 ```
 
-Agent env vars:
+Variables de entorno del agente:
 
 ```
-ZERO_AGENT_ID=<uuid>          # from dashboard or CLI
-ZERO_API_SECRET=<secret>           # HMAC mode, shown once at creation
-# Ed25519 mode (alternative):
-ZERO_PRIVATE_KEY=<64-char hex>        # Ed25519 private key seed
-ZERO_PRIVATE_KEY_PQC=<64-char hex>    # ML-DSA-65 key (optional, post-quantum layer)
+ZERO_AGENT_ID=<uuid>               # desde el dashboard o CLI
+ZERO_API_SECRET=<secret>           # modo HMAC, se muestra una sola vez al crear
+# Modo Ed25519 (alternativa):
+ZERO_PRIVATE_KEY=<hex-64-chars>        # seed de clave privada Ed25519
+ZERO_PRIVATE_KEY_PQC=<hex-64-chars>    # clave ML-DSA-65 (opcional, capa post-cuantica)
 ```
 
 ---
 
-## Self-Hosting the Platform API
+## Self-hosting de la Platform API
 
 ```bash
 cd next-app
-cp .env.example .env    # fill in the values below
+cp .env.example .env    # completar los valores indicados abajo
 npm install
 npm run dev             # http://localhost:3000
 ```
 
-Run `next-app/supabase/schema.sql` in your Supabase SQL editor to create the schema.
+Ejecutar `next-app/supabase/schema.sql` en el editor SQL de Supabase para crear el schema.
 
-| Variable | Description |
+| Variable | Descripcion |
 |---|---|
-| `ENCRYPTION_KEY` | 64-char hex AES-256 key: `openssl rand -hex 32` |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only) |
-| `JWT_SECRET` | Min 32-char secret for signing all JWTs |
-| `DIDIT_API_KEY` | Didit KYC integration key |
-| `DIDIT_KYC_WORKFLOW_ID` | Didit KYC workflow UUID |
-| `SITE_URL` | Public URL of your deployment |
-| `DIDIT_MOCK` | Set to any value to skip KYC (dev only) |
+| `ENCRYPTION_KEY` | Clave AES-256 en hex de 64 chars: `openssl rand -hex 32` |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto en Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Anon key de Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (solo server-side) |
+| `JWT_SECRET` | Secreto de minimo 32 chars para firmar todos los JWT |
+| `DIDIT_API_KEY` | Clave de integracion KYC con Didit |
+| `DIDIT_KYC_WORKFLOW_ID` | UUID del workflow KYC en Didit |
+| `SITE_URL` | URL publica del deployment |
+| `DIDIT_MOCK` | Setear a cualquier valor para saltear KYC (solo dev) |
 
 ---
 
-## API Reference
+## Referencia de API
 
-### Agent validation (called by the SDK, no user auth)
+### Validacion de agentes (llamada por el SDK, sin autenticacion de usuario)
 
-| Method | Endpoint | Description |
+| Metodo | Endpoint | Descripcion |
 |---|---|---|
-| `POST` | `/api/validate` | HMAC mode: verify signature, issue JWT |
-| `POST` | `/api/agent-auth/challenge` | Ed25519 mode: issue one-time challenge |
-| `POST` | `/api/agent-auth/verify` | Ed25519 mode: verify signature, issue JWT |
+| `POST` | `/api/validate` | Modo HMAC: verifica firma y emite JWT |
+| `POST` | `/api/agent-auth/challenge` | Modo Ed25519: emite challenge de un solo uso |
+| `POST` | `/api/agent-auth/verify` | Modo Ed25519: verifica firma y emite JWT |
 
-`POST /api/validate` body: `{ agentId, timestamp, nonce, action, platform, signature }`
-Response: `{ allowed: true, token, expiresAt }` or `{ allowed: false }`
+Body de `POST /api/validate`: `{ agentId, timestamp, nonce, action, platform, signature }`
+Respuesta: `{ allowed: true, token, expiresAt }` o `{ allowed: false }`
 
-### Dashboard (requires `user_session` JWT)
+### Dashboard (requiere JWT de `user_session`)
 
-| Method | Endpoint | Description |
+| Metodo | Endpoint | Descripcion |
 |---|---|---|
-| `POST` | `/api/auth/login` | Login with Google OAuth |
-| `POST` | `/api/agents` | Create agent → returns `{ agent, apiSecret }` once |
-| `GET` | `/api/agents` | List agents |
-| `DELETE` | `/api/agents/[id]` | Disable agent + revoke all its keys |
-| `POST` | `/api/keys` | Create additional key for an agent |
-| `DELETE` | `/api/keys/[id]` | Revoke key |
-| `GET` | `/api/audit-log` | Filterable audit log |
-| `GET` | `/api/alerts` | Last 20 blocked-rule events |
+| `POST` | `/api/auth/login` | Login con Google OAuth |
+| `POST` | `/api/agents` | Crear agente, retorna `{ agent, apiSecret }` una sola vez |
+| `GET` | `/api/agents` | Listar agentes |
+| `DELETE` | `/api/agents/[id]` | Deshabilitar agente y revocar todas sus claves |
+| `POST` | `/api/keys` | Crear clave adicional para un agente |
+| `DELETE` | `/api/keys/[id]` | Revocar clave |
+| `GET` | `/api/audit-log` | Audit log con filtros |
+| `GET` | `/api/alerts` | Ultimos 20 eventos bloqueados por reglas |
 
 ---
 
-## Running Tests
+## Correr los tests
 
 ```bash
 # Platform API
 cd next-app && npm test
 
-# Single test file
+# Archivo de test individual
 cd next-app && npx jest tests/integration/hmac-mcp-e2e.test.ts --no-coverage
 
 # SDK
@@ -189,7 +190,7 @@ cd sdk && npm test
 
 ---
 
-## Team
+## Equipo
 
 - Martin Pulitano ([@MartinPuli](https://github.com/MartinPuli))
 - Candela Mena Bisignano ([@CandelaMenaBisignano07](https://github.com/CandelaMenaBisignano07))
