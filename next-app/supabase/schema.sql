@@ -33,6 +33,9 @@ create table agents (
   platform text not null,
   type text not null default 'agent',
   status agent_status not null default 'ACTIVE',
+  -- HMAC secret for SDK authentication (AES-256-GCM encrypted, format: iv_hex:authTag_hex:ciphertext_hex)
+  secret_enc text,
+  secret_prefix text,             -- first 8 chars of raw secret for display only
   created_at timestamptz default now()
 );
 create index on agents(user_id);
@@ -99,3 +102,16 @@ create table didit_login_attempts (
   decided_at timestamptz
 );
 create index on didit_login_attempts(user_id);
+
+-- Nonce store for HMAC replay prevention (one-use, expires with the request window)
+create table nonces (
+  nonce text primary key,
+  agent_id uuid not null references agents(id) on delete cascade,
+  expires_at timestamptz not null,
+  created_at timestamptz default now()
+);
+create index nonces_expires_at_idx on nonces(expires_at);
+
+-- Migration: run these on an existing database
+-- alter table agents add column if not exists secret_enc text;
+-- alter table agents add column if not exists secret_prefix text;

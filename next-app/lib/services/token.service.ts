@@ -3,23 +3,27 @@ import crypto from 'crypto';
 import { config } from '../config';
 import { supabase } from '../db/supabase';
 
-interface TokenPayload {
+export interface DecodedToken {
   userId: string;
-  apiKeyId: string;
-}
-
-export interface DecodedToken extends TokenPayload {
+  agentId?: string;
+  apiKeyId?: string;
   jti: string;
   type: 'sdk_token' | 'user_session';
   iat: number;
   exp: number;
 }
 
-export async function issueToken(payload: TokenPayload): Promise<string> {
+export async function issueToken(
+  payload: { userId: string; agentId: string },
+  expiresIn: string = '5m',
+): Promise<{ token: string; expiresAt: string }> {
   const jti = crypto.randomUUID();
-  return jwt.sign({ ...payload, jti, type: 'sdk_token' }, config.JWT_SECRET, {
-    expiresIn: config.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
+  const token = jwt.sign({ ...payload, jti, type: 'sdk_token' }, config.JWT_SECRET, {
+    expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
   });
+  const decoded = jwt.decode(token) as { exp: number };
+  const expiresAt = new Date(decoded.exp * 1000).toISOString();
+  return { token, expiresAt };
 }
 
 export async function issueUserToken(userId: string): Promise<string> {
@@ -35,11 +39,6 @@ export async function verifyToken(token: string): Promise<DecodedToken> {
 
 export async function revokeToken(jti: string): Promise<void> {
   await supabase.from('revoked_tokens').insert({ jti });
-}
-
-export async function revokeAllTokensForKey(_apiKeyId: string): Promise<void> {
-  // Tokens are short-lived; revocation via jti is handled per-token
-  // In production, store active jtis per key and revoke in bulk here
 }
 
 export async function isTokenRevoked(jti: string): Promise<boolean> {
