@@ -113,7 +113,7 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
                 displayName: body.displayName ?? null,
               }));
             }
-            const next = body.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+            const next = body.kycStatus === 'VERIFIED' ? '/agents' : '/kyc';
             window.location.href = next;
             clearInterval(interval);
             return;

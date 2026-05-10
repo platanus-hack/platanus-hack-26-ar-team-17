@@ -60,21 +60,32 @@ export default function AuditLogPage() {
             All agent actions — {logs.length} entries
           </p>
         </div>
-        <select
-          value={filter}
-          onChange={e => applyFilter(e.target.value)}
-          style={{
-            ...mono, fontSize: 11, padding: '8px 12px', borderRadius: 6,
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-            color: '#8a8a8a', outline: 'none', cursor: 'pointer',
-          }}
-        >
-          <option value="" style={{ background: '#0a0a0a' }}>All results</option>
-          <option value="SUCCESS" style={{ background: '#0a0a0a' }}>Success</option>
-          <option value="BLOCKED_INVALID_KEY" style={{ background: '#0a0a0a' }}>Invalid key</option>
-          <option value="BLOCKED_RULE" style={{ background: '#0a0a0a' }}>Rule blocked</option>
-          <option value="BLOCKED_REVOKED" style={{ background: '#0a0a0a' }}>Revoked</option>
-        </select>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { v: '', label: 'All' },
+            { v: 'SUCCESS', label: 'Success' },
+            { v: 'BLOCKED_INVALID_KEY', label: 'Invalid key' },
+            { v: 'BLOCKED_RULE', label: 'Rule blocked' },
+            { v: 'BLOCKED_REVOKED', label: 'Revoked' },
+          ].map(opt => {
+            const active = filter === opt.v;
+            return (
+              <button
+                key={opt.v || 'all'}
+                onClick={() => applyFilter(opt.v)}
+                style={{
+                  ...mono, fontSize: 12, padding: '7px 13px', borderRadius: 999, cursor: 'pointer',
+                  background: active ? 'rgba(200,245,66,0.1)' : 'transparent',
+                  color: active ? 'var(--accent)' : 'var(--text-dim)',
+                  border: `1px solid ${active ? 'rgba(200,245,66,0.28)' : 'var(--border-strong)'}`,
+                  transition: 'all 120ms ease',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (

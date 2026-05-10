@@ -7,10 +7,9 @@ import { MeshGradient } from '@paper-design/shaders-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const nav = [
-  { href: '/agents', label: 'Agents', icon: '◉' },
-  { href: '/keys', label: 'API Keys', icon: '⬡' },
-  { href: '/audit-log', label: 'Audit Log', icon: '≡' },
-  { href: '/alerts', label: 'Alerts', icon: '⚠' },
+  { href: '/agents', label: 'Dashboard' },
+  { href: '/audit-log', label: 'Audit log' },
+  { href: '/alerts', label: 'Alerts' },
 ];
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
@@ -199,58 +198,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '10px 10px' }}>
-          {nav.map(({ href, label, icon }) => {
+        <nav style={{ flex: 1, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {nav.map(({ href, label }) => {
             const active = pathname === href || pathname.startsWith(href + '/');
             return (
               <Link
                 key={href}
                 href={href}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '12px 16px', borderRadius: 999, marginBottom: 4,
-                  ...mono, fontSize: 15,
+                  display: 'block',
+                  padding: '10px 14px',
+                  fontFamily: 'var(--font-grotesk-var), Inter, sans-serif',
+                  fontSize: 14, fontWeight: active ? 500 : 400,
+                  letterSpacing: '-0.005em',
                   textDecoration: 'none',
-                  transition: 'all 120ms ease',
-                  background: active ? 'rgba(200,245,66,0.08)' : 'transparent',
-                  color: active ? 'var(--accent)' : 'var(--text-dim)',
-                  border: active ? '1px solid rgba(200,245,66,0.22)' : '1px solid transparent',
-                  backdropFilter: active ? 'blur(10px)' : 'none',
+                  transition: 'color 120ms ease, background 120ms ease',
+                  background: 'transparent',
+                  color: active ? 'var(--text)' : 'var(--text-muted)',
+                  borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
                 }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--text-dim)'; }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--text-muted)'; }}
               >
-                <span style={{ fontSize: 16, lineHeight: 1, opacity: active ? 1 : 0.7 }}>{icon}</span>
                 {label}
               </Link>
             );
           })}
         </nav>
 
-        {/* KYC badge if verified */}
-        {kycStatus === 'VERIFIED' && (
-          <div style={{ padding: '8px 10px' }}>
-            <div style={{
-              ...mono, fontSize: 13, color: 'var(--accent)',
-              background: 'rgba(200,245,66,0.07)',
-              border: '1px solid rgba(200,245,66,0.18)',
-              borderRadius: 999, padding: '8px 14px',
-              display: 'flex', alignItems: 'center', gap: 8,
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-            }}>
-              <span style={{ animation: 'pulse 2s ease-in-out infinite', fontSize: 10 }}>●</span>
-              Identity verified
-            </div>
-          </div>
-        )}
-
         {/* Sign out */}
-        <div style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             onClick={logout}
             style={{
-              display: 'flex', alignItems: 'center',
-              padding: '12px 16px', borderRadius: 999, width: '100%',
-              ...mono, fontSize: 15,
+              display: 'block', textAlign: 'left',
+              padding: '10px 14px', width: '100%',
+              fontFamily: 'var(--font-grotesk-var), Inter, sans-serif', fontSize: 14,
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--text-muted)', transition: 'color 120ms ease',
             }}

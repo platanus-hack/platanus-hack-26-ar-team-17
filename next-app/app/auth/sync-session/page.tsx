@@ -33,7 +33,7 @@ export default function SyncSessionPage() {
         }),
       );
       // Recarga completa para que AuthProvider lea `zero_auth`.
-      window.location.assign(body.kycStatus === 'VERIFIED' ? '/keys' : '/kyc');
+      window.location.assign(body.kycStatus === 'VERIFIED' ? '/agents' : '/kyc');
     })();
     return () => {
       cancelled = true;

@@ -14,6 +14,7 @@ type KeyRow = {
   id: string;
   name: string;
   prefix: string;
+  plain_key: string | null;
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at: string | null;
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('api_keys')
     .select(
-      'id, name, prefix, status, created_at, revoked_at, agent_id, agents!inner(name, platform, type, user_id)',
+      'id, name, prefix, plain_key, status, created_at, revoked_at, agent_id, agents!inner(name, platform, type, user_id)',
     )
     .eq('agents.user_id', me.internalId)
     .order('created_at', { ascending: false });
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       id: r.id,
       name: r.name,
       prefix: r.prefix,
+      plain_key: r.plain_key,
       status: r.status,
       created_at: r.created_at,
       revoked_at: r.revoked_at,

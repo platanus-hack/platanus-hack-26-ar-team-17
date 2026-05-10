@@ -48,7 +48,7 @@ export default function CallbackPage() {
             kycStatus: result.kycStatus ?? null,
             displayName: result.displayName ?? null,
           }));
-          window.location.href = result.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+          window.location.href = result.kycStatus === 'VERIFIED' ? '/agents' : '/kyc';
           return;
         }
 
