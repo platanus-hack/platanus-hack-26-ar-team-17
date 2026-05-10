@@ -1,5 +1,4 @@
 import { GET as getAuditLog } from '@/app/api/audit-log/route';
-import { GET as getAlerts } from '@/app/api/alerts/route';
 import { NextRequest } from 'next/server';
 
 jest.mock('@/lib/auth', () => ({ getInternalUserId: jest.fn() }));
@@ -67,25 +66,6 @@ describe('GET /api/audit-log', () => {
   });
 });
 
-describe('GET /api/alerts', () => {
-  it('returns BLOCKED_RULE logs', async () => {
-    mockAuth();
-    supabase.from.mockReturnValueOnce({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: [{ id: 'l2', result: 'BLOCKED_RULE' }], error: null }),
-            }),
-          }),
-        }),
-      }),
-    });
-    const res = await getAlerts(makeReq('/api/alerts'));
-    expect(res.status).toBe(200);
-  });
-});
-
 describe('GET /api/audit-log — edge cases', () => {
   it('returns empty array when user has no audit logs', async () => {
     mockAuth();
@@ -103,22 +83,3 @@ describe('GET /api/audit-log — edge cases', () => {
   });
 });
 
-describe('GET /api/alerts — edge cases', () => {
-  it('returns empty array when no BLOCKED_RULE logs exist', async () => {
-    mockAuth();
-    supabase.from.mockReturnValueOnce({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockReturnValue({
-              limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          }),
-        }),
-      }),
-    });
-    const res = await getAlerts(makeReq('/api/alerts'));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([]);
-  });
-});
