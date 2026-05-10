@@ -1,13 +1,14 @@
 export interface SDKConfig {
-    apiKey?: string;
-    userHash?: string;
+    agentId?: string;
+    apiSecret?: string;
 }
 export interface RunResult {
     allowed: boolean;
+    token?: string;
 }
 export declare class ZeroGateSDK {
-    private apiKey;
-    private userHash;
+    private agentId;
+    private apiSecret;
     private platform;
     constructor(config?: SDKConfig);
     run(): Promise<RunResult>;
