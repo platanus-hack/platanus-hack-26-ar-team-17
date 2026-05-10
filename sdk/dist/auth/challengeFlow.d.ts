@@ -1,0 +1,2 @@
+export declare function performChallengeFlow(agentId: string, privateKeyHex: string, requestedAction: string, platform: string, platformApiUrl: string): Promise<string>;
+//# sourceMappingURL=challengeFlow.d.ts.map

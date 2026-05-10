@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.performChallengeFlow = performChallengeFlow;
+const client_1 = require("../http/client");
+const ed25519_1 = require("../utils/ed25519");
+const cache_1 = require("./cache");
+async function performChallengeFlow(agentId, privateKeyHex, requestedAction, platform, platformApiUrl) {
+    const challenge = await (0, client_1.post)(`${platformApiUrl}/api/agent-auth/challenge`, { agentId, requestedAction, platform });
+    const payload = (0, ed25519_1.buildChallengePayload)(challenge.challengeId, challenge.nonce, agentId);
+    const signature = (0, ed25519_1.signChallenge)(privateKeyHex, payload);
+    const { accessToken, expiresAt } = await (0, client_1.post)(`${platformApiUrl}/api/agent-auth/verify`, { agentId, challengeId: challenge.challengeId, signature });
+    (0, cache_1.setCachedToken)(accessToken, expiresAt);
+    return accessToken;
+}

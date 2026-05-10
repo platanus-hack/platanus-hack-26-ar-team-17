@@ -1,11 +1,8 @@
 import { generateKeyPairSync, verify as cryptoVerify } from 'crypto';
+import * as client from '../../src/http/client';
 import { clearCache, getCachedToken } from '../../src/auth/cache';
 import { performChallengeFlow } from '../../src/auth/challengeFlow';
 import { buildChallengePayload } from '../../src/utils/ed25519';
-
-jest.mock('../../src/http/client');
-
-const { post } = require('../../src/http/client');
 
 function makeKeyPair() {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -16,31 +13,37 @@ function makeKeyPair() {
   return { privHex, pubHex };
 }
 
-beforeEach(() => {
-  clearCache();
-  jest.clearAllMocks();
-});
-
 describe('performChallengeFlow', () => {
+  let postSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    clearCache();
+    postSpy = jest.spyOn(client, 'post');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('calls challenge and verify endpoints and returns the JWT', async () => {
     const { privHex } = makeKeyPair();
     const challengeNonce = 'abc123';
     const challengeId = 'chal-uuid-1';
     const agentId = 'agent-uuid-1';
 
-    post
+    postSpy
       .mockResolvedValueOnce({ challengeId, nonce: challengeNonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
       .mockResolvedValueOnce({ accessToken: 'jwt-token', expiresAt: new Date(Date.now() + 300000).toISOString() });
 
     const token = await performChallengeFlow(agentId, privHex, 'send_message', 'mcp', 'https://api.example.com');
 
-    expect(post).toHaveBeenCalledTimes(2);
-    expect(post).toHaveBeenNthCalledWith(
+    expect(postSpy).toHaveBeenCalledTimes(2);
+    expect(postSpy).toHaveBeenNthCalledWith(
       1,
       'https://api.example.com/api/agent-auth/challenge',
       { agentId, requestedAction: 'send_message', platform: 'mcp' },
     );
-    expect(post).toHaveBeenNthCalledWith(
+    expect(postSpy).toHaveBeenNthCalledWith(
       2,
       'https://api.example.com/api/agent-auth/verify',
       expect.objectContaining({ agentId, challengeId }),
@@ -50,7 +53,7 @@ describe('performChallengeFlow', () => {
 
   it('caches the token after a successful flow', async () => {
     const { privHex } = makeKeyPair();
-    post
+    postSpy
       .mockResolvedValueOnce({ challengeId: 'c', nonce: 'n', timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
       .mockResolvedValueOnce({ accessToken: 'cached-token', expiresAt: new Date(Date.now() + 300000).toISOString() });
 
@@ -65,13 +68,13 @@ describe('performChallengeFlow', () => {
     const nonce = 'nonce-sig-test';
     const agentId = 'agent-sig-test';
 
-    post
+    postSpy
       .mockResolvedValueOnce({ challengeId, nonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
       .mockResolvedValueOnce({ accessToken: 'tok', expiresAt: new Date(Date.now() + 300000).toISOString() });
 
     await performChallengeFlow(agentId, privHex, 'action', 'mcp', 'https://api.example.com');
 
-    const { signature } = post.mock.calls[1][1];
+    const { signature } = postSpy.mock.calls[1][1];
     const payload = buildChallengePayload(challengeId, nonce, agentId);
     const prefix = Buffer.from('302a300506032b6570032100', 'hex');
     const spkiDer = Buffer.concat([prefix, Buffer.from(pubHex, 'hex')]);
