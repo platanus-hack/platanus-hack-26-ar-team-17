@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 const nav = [
+  { href: '/agents', label: 'Agents', icon: '◉' },
   { href: '/keys', label: 'API Keys', icon: '⬡' },
   { href: '/audit-log', label: 'Audit Log', icon: '≡' },
   { href: '/alerts', label: 'Alerts', icon: '⚠' },
@@ -61,7 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }}>
         {/* Logo */}
         <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <Link href="/keys" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 0 }}>
+          <Link href="/agents" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'baseline', gap: 0 }}>
             <span style={{
               fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif',
               fontWeight: 600, fontSize: 20, letterSpacing: '-0.05em', color: 'var(--text)',
