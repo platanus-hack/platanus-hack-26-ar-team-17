@@ -15,6 +15,7 @@ jest.mock('@/lib/services/loginAttempt.service', () => ({
 }));
 jest.mock('@/lib/services/didit.service', () => ({
   createVerificationSession: jest.fn(),
+  getKycPortraitAsBase64: jest.fn(),
 }));
 jest.mock('@/lib/rateLimiter', () => ({
   checkRateLimit: jest.fn().mockResolvedValue(true),
@@ -27,7 +28,7 @@ jest.mock('@/lib/services/token.service', () => ({
 
 const { supabase } = require('@/lib/db/supabase');
 const { getProfileByUserId, createProfile } = require('@/lib/services/profile.service');
-const { createVerificationSession } = require('@/lib/services/didit.service');
+const { createVerificationSession, getKycPortraitAsBase64 } = require('@/lib/services/didit.service');
 const { checkRateLimit } = require('@/lib/rateLimiter');
 const { revokeToken, verifyToken } = require('@/lib/services/token.service');
 
@@ -49,7 +50,7 @@ const googleUser = {
 };
 
 describe('POST /api/auth/login', () => {
-  const profile = { id: 'p1', user_id: 'auth_user_1', verification_status: 'APPROVED' };
+  const profile = { id: 'p1', user_id: 'auth_user_1', verification_status: 'APPROVED', didit_kyc_session_id: 'sess_kyc_1' };
 
   it('starts KYC and returns 201 for a new (unregistered) user', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
@@ -77,6 +78,7 @@ describe('POST /api/auth/login', () => {
   it('creates a Didit Biometric session for an approved user', async () => {
     supabase.auth.getUser.mockResolvedValueOnce({ data: { user: googleUser }, error: null });
     getProfileByUserId.mockResolvedValueOnce(profile);
+    getKycPortraitAsBase64.mockResolvedValueOnce('base64encodedportrait');
     createVerificationSession.mockResolvedValueOnce({ session_id: 'sess_bio_1', url: 'https://verify/sess_bio_1' });
 
     const res = await login(makePost('/api/auth/login', { supabase_access_token: 'sb' }));
