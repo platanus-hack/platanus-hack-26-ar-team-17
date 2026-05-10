@@ -8,7 +8,9 @@ export async function POST(req: NextRequest) {
   const raw = await req.text();
   const signatureHeader = req.headers.get('x-signature-v2');
   const timestampHeader = req.headers.get('x-timestamp');
-  if (!verifyWebhookSignatureV2({ rawBody: raw, signatureHeader, timestampHeader })) {
+  const valid = verifyWebhookSignatureV2({ rawBody: raw, signatureHeader, timestampHeader });
+  console.log('[webhook] sig valid:', valid, 'hasV2:', !!signatureHeader, 'hasTs:', !!timestampHeader);
+  if (!valid) {
     return NextResponse.json({ error: 'invalid_signature' }, { status: 401 });
   }
 

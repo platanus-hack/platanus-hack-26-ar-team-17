@@ -116,17 +116,30 @@ export async function getKycPortraitAsBase64(kycSessionId: string): Promise<stri
   return buf.toString('base64');
 }
 
-function canonicalJSON(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return '[' + value.map(canonicalJSON).join(',') + ']';
-  const keys = Object.keys(value as Record<string, unknown>).sort();
-  return (
-    '{' +
-    keys
-      .map((k) => JSON.stringify(k) + ':' + canonicalJSON((value as Record<string, unknown>)[k]))
-      .join(',') +
-    '}'
-  );
+function shortenFloats(data: unknown): unknown {
+  if (Array.isArray(data)) return data.map(shortenFloats);
+  if (data !== null && typeof data === 'object') {
+    return Object.fromEntries(
+      Object.entries(data as Record<string, unknown>).map(([k, v]) => [k, shortenFloats(v)])
+    );
+  }
+  if (typeof data === 'number' && !Number.isInteger(data) && data % 1 === 0) {
+    return Math.trunc(data);
+  }
+  return data;
+}
+
+function sortKeysDeep(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(sortKeysDeep);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj as Record<string, unknown>)
+      .sort()
+      .reduce((acc: Record<string, unknown>, key) => {
+        acc[key] = sortKeysDeep((obj as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return obj;
 }
 
 export interface SignatureVerifyParams {
@@ -156,18 +169,18 @@ export function verifyWebhookSignatureV2(params: SignatureVerifyParams): boolean
     return false;
   }
 
-  const canonical = canonicalJSON(parsed);
-  const expected = crypto.createHmac('sha256', secret).update(canonical).digest('hex');
+  // Match Didit's V2 signing: shortenFloats → sort keys → JSON.stringify (Unicode preserved)
+  const canonical = JSON.stringify(sortKeysDeep(shortenFloats(parsed)));
+  const expected = crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex');
 
-  const expectedBuf = Buffer.from(expected, 'hex');
-  let providedBuf: Buffer;
   try {
-    providedBuf = Buffer.from(signatureHeader, 'hex');
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, 'utf8'),
+      Buffer.from(signatureHeader, 'utf8'),
+    );
   } catch {
     return false;
   }
-  if (providedBuf.length !== expectedBuf.length) return false;
-  return crypto.timingSafeEqual(expectedBuf, providedBuf);
 }
 
 export function mapDiditStatusToKyc(status: DiditStatus): 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED' {

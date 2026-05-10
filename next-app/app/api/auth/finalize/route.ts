@@ -37,6 +37,7 @@ async function approveResponse(userId: string): Promise<NextResponse> {
 async function syncKycStatusFromDidit(sessionId: string, authUserId: string) {
   try {
     const session = await getSession(sessionId);
+    console.log('[finalize] didit session:', sessionId, 'status:', session.status);
     if (session.status !== 'Approved' && session.status !== 'Declined' && session.status !== 'Abandoned') {
       return null;
     }
@@ -55,7 +56,8 @@ async function syncKycStatusFromDidit(sessionId: string, authUserId: string) {
     });
 
     return verification_status;
-  } catch {
+  } catch (err) {
+    console.error('[finalize] syncKycStatusFromDidit error:', err);
     return null;
   }
 }
@@ -81,7 +83,10 @@ export async function GET(req: NextRequest) {
   if (error || !userResult?.user) return NextResponse.json({ error: 'invalid_token' }, { status: 401 });
 
   const profile = await getProfileByUserId(userResult.user.id);
-  if (!profile) return NextResponse.json({ status: 'pending' }, { status: 202 });
+  if (!profile) {
+    console.warn('[finalize] no profile found for user:', userResult.user.id);
+    return NextResponse.json({ status: 'pending' }, { status: 202 });
+  }
   if (profile.verification_status === 'APPROVED') return approveResponse(profile.user_id);
   if (profile.verification_status === 'REJECTED') return NextResponse.json({ error: 'rejected' }, { status: 410 });
 
