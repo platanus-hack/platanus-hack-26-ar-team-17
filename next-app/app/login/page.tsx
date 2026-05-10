@@ -124,29 +124,16 @@ export default function LoginPage() {
               opacity: busy ? 0.6 : 1,
               backdropFilter: 'blur(14px) saturate(140%)',
               WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-              boxShadow:
-                'inset 0 1px 0 rgba(255,255,255,0.1),' +
-                '0 0 0 1px rgba(200,245,66,0.05),' +
-                '0 14px 36px -10px rgba(200,245,66,0.22)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)',
               transition: 'all 200ms cubic-bezier(0.22, 1, 0.36, 1)',
             }}
             onMouseEnter={e => { if (!busy) {
-              e.currentTarget.style.background = 'rgba(200,245,66,0.18)';
-              e.currentTarget.style.borderColor = 'rgba(200,245,66,0.5)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow =
-                'inset 0 1px 0 rgba(255,255,255,0.14),' +
-                '0 0 0 1px rgba(200,245,66,0.1),' +
-                '0 18px 44px -10px rgba(200,245,66,0.36)';
+              e.currentTarget.style.background = 'rgba(200,245,66,0.14)';
+              e.currentTarget.style.borderColor = 'rgba(200,245,66,0.4)';
             }}}
             onMouseLeave={e => {
               e.currentTarget.style.background = 'rgba(200,245,66,0.1)';
               e.currentTarget.style.borderColor = 'rgba(200,245,66,0.32)';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow =
-                'inset 0 1px 0 rgba(255,255,255,0.1),' +
-                '0 0 0 1px rgba(200,245,66,0.05),' +
-                '0 14px 36px -10px rgba(200,245,66,0.22)';
             }}
           >
             <GoogleGlyph />

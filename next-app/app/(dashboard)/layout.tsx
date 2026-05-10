@@ -131,14 +131,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseLeave={scheduleClose}
         style={{
         width: SIDEBAR_WIDTH, flexShrink: 0,
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
         display: 'flex', flexDirection: 'column',
         position: 'fixed', top: 0, left: 0, bottom: 0,
-        zIndex: 10, background: 'rgba(5,5,5,0.92)',
-        backdropFilter: 'blur(20px)',
+        zIndex: 10,
+        background: 'linear-gradient(180deg, rgba(10,12,8,0.55) 0%, rgba(5,5,5,0.5) 100%)',
+        backdropFilter: 'blur(40px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(40px) saturate(160%)',
         transform: expanded ? 'translateX(0)' : `translateX(-${SIDEBAR_WIDTH}px)`,
         transition: 'transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease',
-        boxShadow: expanded ? '24px 0 60px -16px rgba(0,0,0,0.7)' : 'none',
+        boxShadow: expanded
+          ? [
+              'inset 0 1px 0 rgba(255,255,255,0.06)',
+              'inset -1px 0 0 rgba(255,255,255,0.04)',
+              '24px 0 60px -16px rgba(0,0,0,0.55)',
+              '0 0 80px -20px rgba(200,245,66,0.08)',
+            ].join(', ')
+          : 'inset 0 1px 0 rgba(255,255,255,0.04)',
       }}>
         {/* Logo */}
         <div style={{ padding: '22px 20px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>

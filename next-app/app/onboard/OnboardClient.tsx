@@ -66,10 +66,10 @@ export default function OnboardClient() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '24px 36px',
       }}>
-        <Link href="/" style={{ ...grotesk, textDecoration: 'none', color: 'var(--text)', fontWeight: 600, fontSize: 20, letterSpacing: '-0.05em', textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
+        <Link href="/" style={{ ...grotesk, textDecoration: 'none', color: 'var(--text)', fontWeight: 600, fontSize: 20, letterSpacing: '-0.05em' }}>
           zero<span style={{ color: 'var(--accent)' }}>.</span>
         </Link>
-        <Link href="/login" style={{ ...mono, fontSize: 12, color: 'rgba(245,245,245,0.7)', textDecoration: 'none', textShadow: '0 1px 8px rgba(0,0,0,0.5)' }}>
+        <Link href="/login" style={{ ...mono, fontSize: 12, color: 'rgba(245,245,245,0.7)', textDecoration: 'none' }}>
           Already have an account?
         </Link>
       </header>
@@ -241,7 +241,6 @@ function FluidStepper({ step, onJump }: { step: StepId; onJump: (id: StepId) => 
                 ...mono, fontSize: 10.5,
                 color: active ? 'rgba(245,245,245,0.95)' : done ? 'rgba(245,245,245,0.7)' : 'rgba(245,245,245,0.4)',
                 letterSpacing: '0.06em', textTransform: 'uppercase',
-                textShadow: '0 1px 8px rgba(0,0,0,0.5)',
                 transition: 'color 250ms ease',
               }}>
                 {title}
@@ -340,29 +339,16 @@ function Step1Google() {
           opacity: busy ? 0.6 : 1,
           backdropFilter: 'blur(14px) saturate(140%)',
           WebkitBackdropFilter: 'blur(14px) saturate(140%)',
-          boxShadow:
-            'inset 0 1px 0 rgba(255,255,255,0.1),' +
-            '0 0 0 1px rgba(200,245,66,0.05),' +
-            '0 14px 36px -10px rgba(200,245,66,0.22)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)',
           transition: 'all 200ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
         onMouseEnter={e => { if (!busy) {
-          e.currentTarget.style.background = 'rgba(200,245,66,0.18)';
-          e.currentTarget.style.borderColor = 'rgba(200,245,66,0.5)';
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          e.currentTarget.style.boxShadow =
-            'inset 0 1px 0 rgba(255,255,255,0.14),' +
-            '0 0 0 1px rgba(200,245,66,0.1),' +
-            '0 18px 44px -10px rgba(200,245,66,0.36)';
+          e.currentTarget.style.background = 'rgba(200,245,66,0.14)';
+          e.currentTarget.style.borderColor = 'rgba(200,245,66,0.4)';
         }}}
         onMouseLeave={e => {
           e.currentTarget.style.background = 'rgba(200,245,66,0.1)';
           e.currentTarget.style.borderColor = 'rgba(200,245,66,0.32)';
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow =
-            'inset 0 1px 0 rgba(255,255,255,0.1),' +
-            '0 0 0 1px rgba(200,245,66,0.05),' +
-            '0 14px 36px -10px rgba(200,245,66,0.22)';
         }}
       >
         <GoogleGlyph />
