@@ -48,9 +48,17 @@ export async function createVerificationSession(params: {
   userId: string;
   callbackUrl: string;
   workflowId?: string; // override default for biometric flows
+  portraitImage?: string; // base64-encoded reference image for biometric face match
 }): Promise<CreateSessionResponse> {
   const apiKey = requireEnv('DIDIT_API_KEY');
   const workflowId = params.workflowId ?? requireEnv('DIDIT_WORKFLOW_ID');
+
+  const body: Record<string, unknown> = {
+    workflow_id: workflowId,
+    vendor_data: params.userId,
+    callback: params.callbackUrl,
+  };
+  if (params.portraitImage) body.portrait_image = params.portraitImage;
 
   const res = await fetch(`${DIDIT_API_URL}/v3/session/`, {
     method: 'POST',
@@ -58,11 +66,7 @@ export async function createVerificationSession(params: {
       'x-api-key': apiKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      workflow_id: workflowId,
-      vendor_data: params.userId,
-      callback: params.callbackUrl,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -81,6 +85,35 @@ export async function getSession(sessionId: string): Promise<DiditSessionDetails
   });
   if (!res.ok) throw new Error(`Didit getSession failed: ${res.status}`);
   return (await res.json()) as DiditSessionDetails;
+}
+
+export interface DiditDecision {
+  session_id: string;
+  status: string;
+  id_verifications?: Array<{ portrait_image?: string; [k: string]: unknown }>;
+  [k: string]: unknown;
+}
+
+export async function getDecision(sessionId: string): Promise<DiditDecision> {
+  const apiKey = requireEnv('DIDIT_API_KEY');
+  const res = await fetch(`${DIDIT_API_URL}/v3/session/${sessionId}/decision/`, {
+    method: 'GET',
+    headers: { 'x-api-key': apiKey },
+  });
+  if (!res.ok) throw new Error(`Didit getDecision failed: ${res.status}`);
+  return (await res.json()) as DiditDecision;
+}
+
+// Pulls the portrait image captured during a prior KYC session and returns
+// it as base64 — the format Didit expects for biometric `portrait_image`.
+export async function getKycPortraitAsBase64(kycSessionId: string): Promise<string | null> {
+  const decision = await getDecision(kycSessionId);
+  const portraitUrl = decision.id_verifications?.[0]?.portrait_image;
+  if (!portraitUrl) return null;
+  const res = await fetch(portraitUrl);
+  if (!res.ok) throw new Error(`Failed to fetch portrait: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  return buf.toString('base64');
 }
 
 function canonicalJSON(value: unknown): string {
