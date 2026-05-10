@@ -84,75 +84,142 @@ Wrap every agent action with HMAC-signed validation. v1.0.3 contract.
 - Block reasons appear in the audit log on the platform dashboard, not in the SDK response.
 `;
 
-function CodeBlock({ code, label }: { code: string; label?: string }) {
+function TerminalDots() {
+  const dot = { width: 11, height: 11, borderRadius: '50%', display: 'inline-block' } as const;
   return (
-    <div style={{ marginBottom: 24 }}>
-      {label && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-          <span style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 14px', background: 'rgba(8,8,8,0.7)', borderRadius: '8px 8px 0 0', border: '1px solid rgba(255,255,255,0.07)', borderBottom: 'none', backdropFilter: 'blur(10px)' }}>
-            {label}
-          </span>
-        </div>
-      )}
-      <pre style={{
-        ...mono,
-        fontSize: 13,
-        lineHeight: 1.75,
-        background: 'rgba(8,8,8,0.78)',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: label ? '0 8px 8px 8px' : 8,
-        padding: '18px 22px',
-        color: '#e8e8e8',
-        overflowX: 'auto',
-        margin: 0,
-        whiteSpace: 'pre',
+    <span style={{ display: 'inline-flex', gap: 7, alignItems: 'center' }}>
+      <span style={{ ...dot, background: '#ff5f57', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25)' }} />
+      <span style={{ ...dot, background: '#febc2e', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25)' }} />
+      <span style={{ ...dot, background: '#28c840', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.25)' }} />
+    </span>
+  );
+}
+
+function TerminalChrome({
+  label,
+  accent = false,
+  children,
+  scrollable = false,
+}: {
+  label?: string;
+  accent?: boolean;
+  children: React.ReactNode;
+  scrollable?: boolean;
+}) {
+  const borderColor = accent ? 'rgba(200,245,66,0.22)' : 'rgba(255,255,255,0.08)';
+  const headerBg = accent ? 'rgba(7,9,7,0.85)' : 'rgba(10,10,10,0.85)';
+  const bodyBg = accent ? 'rgba(7,9,7,0.78)' : 'rgba(8,8,8,0.78)';
+  const labelColor = accent ? 'var(--accent)' : 'var(--text-faint)';
+  return (
+    <div
+      style={{
+        marginBottom: 28,
+        border: `1px solid ${borderColor}`,
+        borderRadius: 10,
+        overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
-      }}>
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '10px 14px',
+          background: headerBg,
+          borderBottom: `1px solid ${borderColor}`,
+        }}
+      >
+        <TerminalDots />
+        {label && (
+          <span
+            style={{
+              ...mono,
+              fontSize: 12,
+              color: labelColor,
+              letterSpacing: '0.02em',
+              flex: 1,
+              textAlign: 'center',
+              paddingRight: 50, // visually balance the dots on the left
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {label}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          background: bodyBg,
+          maxHeight: scrollable ? 460 : undefined,
+          overflowY: scrollable ? 'auto' : undefined,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CodeBlock({ code, label }: { code: string; label?: string }) {
+  return (
+    <TerminalChrome label={label}>
+      <pre
+        style={{
+          ...mono,
+          fontSize: 14,
+          lineHeight: 1.75,
+          padding: '20px 22px',
+          color: '#e8e8e8',
+          overflowX: 'auto',
+          margin: 0,
+          whiteSpace: 'pre',
+          background: 'transparent',
+        }}
+      >
         {code}
       </pre>
-    </div>
+    </TerminalChrome>
   );
 }
 
 function CopyableBlock({ code, label }: { code: string; label?: string }) {
   return (
-    <div style={{ marginBottom: 24 }}>
-      {label && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
-          <span style={{ ...mono, fontSize: 10, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 14px', background: 'rgba(200,245,66,0.08)', borderRadius: '8px 8px 0 0', border: '1px solid rgba(200,245,66,0.22)', borderBottom: 'none', backdropFilter: 'blur(10px)' }}>
-            {label}
-          </span>
-        </div>
-      )}
-      <pre style={{
-        ...mono, fontSize: 12.5, lineHeight: 1.7,
-        background: 'rgba(7,9,7,0.78)',
-        border: '1px solid rgba(200,245,66,0.2)',
-        borderRadius: label ? '0 8px 8px 8px' : 8,
-        padding: '20px 22px',
-        color: '#e8e8e8', overflowX: 'auto', margin: 0,
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-        maxHeight: 460, overflowY: 'auto',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-      }}>
+    <TerminalChrome label={label} accent scrollable>
+      <pre
+        style={{
+          ...mono,
+          fontSize: 13.5,
+          lineHeight: 1.75,
+          padding: '20px 22px',
+          color: '#e8e8e8',
+          overflowX: 'auto',
+          margin: 0,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          background: 'transparent',
+        }}
+      >
         {code}
       </pre>
-    </div>
+    </TerminalChrome>
   );
 }
 
 function Section({ title, tag, children }: { title: string; tag?: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 56, paddingTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+    <div style={{ marginBottom: 64, paddingTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 22 }}>
         {tag && (
-          <span style={{ ...mono, fontSize: 10, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(200,245,66,0.07)', border: '1px solid rgba(200,245,66,0.2)', padding: '3px 9px', borderRadius: 999 }}>
+          <span style={{ ...mono, fontSize: 11, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(200,245,66,0.07)', border: '1px solid rgba(200,245,66,0.2)', padding: '4px 10px', borderRadius: 999 }}>
             {tag}
           </span>
         )}
-        <h2 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 18, fontWeight: 600, letterSpacing: 0, margin: 0, textShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>
+        <h2 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 22, fontWeight: 600, letterSpacing: 0, margin: 0, textShadow: '0 2px 16px rgba(0,0,0,0.5)' }}>
           {title}
         </h2>
       </div>
@@ -163,7 +230,7 @@ function Section({ title, tag, children }: { title: string; tag?: string; childr
 
 function InfoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: 'rgba(200,245,66,0.05)', border: '1px solid rgba(200,245,66,0.18)', borderRadius: 10, padding: '14px 18px', marginBottom: 20, fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.7, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+    <div style={{ background: 'rgba(200,245,66,0.05)', border: '1px solid rgba(200,245,66,0.18)', borderRadius: 10, padding: '16px 20px', marginBottom: 22, fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.7, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
       {children}
     </div>
   );
@@ -171,7 +238,7 @@ function InfoBox({ children }: { children: React.ReactNode }) {
 
 function BulletList({ items }: { items: React.ReactNode[] }) {
   return (
-    <ul style={{ fontSize: 14, color: 'var(--text-dim)', lineHeight: 1.9, paddingLeft: 18, margin: '0 0 18px' }}>
+    <ul style={{ fontSize: 15.5, color: 'var(--text-dim)', lineHeight: 1.9, paddingLeft: 20, margin: '0 0 20px' }}>
       {items.map((item, index) => (
         <li key={index}>{item}</li>
       ))}
@@ -209,13 +276,13 @@ export default function DocsPage() {
 
       <main style={{ maxWidth: 780, margin: '0 auto', padding: '64px clamp(20px, 6vw, 48px) 120px', position: 'relative', zIndex: 1 }}>
         <div style={{ marginBottom: 64 }}>
-          <span style={{ ...mono, fontSize: 11, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16, display: 'block' }}>
+          <span style={{ ...mono, fontSize: 12.5, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 18, display: 'block' }}>
             Developer docs / SDK v1.0.3 / HMAC mode
           </span>
-          <h1 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 38, fontWeight: 700, letterSpacing: 0, lineHeight: 1.1, margin: '0 0 18px', textShadow: '0 4px 32px rgba(0,0,0,0.55)' }}>
+          <h1 style={{ fontFamily: 'var(--font-grotesk-var), sans-serif', fontSize: 46, fontWeight: 700, letterSpacing: 0, lineHeight: 1.1, margin: '0 0 22px', textShadow: '0 4px 32px rgba(0,0,0,0.55)' }}>
             Add accountable identity<br />to your agent.
           </h1>
-          <p style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.75, margin: 0, maxWidth: 620 }}>
+          <p style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.7, margin: 0, maxWidth: 640 }}>
             Zero links an AI agent or MCP server to the human account that created it. Call the SDK before a real-world action, and Zero verifies the runtime, signs it with HMAC-SHA256, returns a short-lived token, and records the action for audit.
           </p>
         </div>
@@ -237,14 +304,14 @@ export default function DocsPage() {
 
         <Section tag="01" title="Install">
           <CodeBlock label="npm" code="npm install @zero-gate/sdk@1.0.3" />
-          <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: -8, lineHeight: 1.8 }}>
+          <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginTop: -4, lineHeight: 1.85 }}>
             Local repo install: <code style={{ color: 'var(--text-dim)' }}>npm install ../sdk/zero-gate-sdk-1.0.3.tgz</code><br />
             Not on npm yet? <code style={{ color: 'var(--text-dim)' }}>npm install https://github.com/platanus-hack/platanus-hack-26-ar-team-17/raw/main/sdk/zero-gate-sdk-1.0.3.tgz</code>
           </p>
         </Section>
 
         <Section tag="02" title="Create an agent">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             In the dashboard, create one agent per runtime you want to identify. Open <Link href="/agents" style={{ color: 'var(--accent)' }}>/agents</Link>, hit <strong>view credentials</strong>, and copy the agent ID and API secret. The secret is shown once and is meant to be stored in the agent environment.
           </p>
           <CodeBlock
@@ -262,7 +329,7 @@ ZERO_API_SECRET=hQv7…(long base64url string)…2k
         </Section>
 
         <Section tag="03" title="Configure the runtime">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             The SDK reads <code style={mono}>ZERO_AGENT_ID</code> and <code style={mono}>ZERO_API_SECRET</code> from env. Platform URL, action and caller platform are auto-detected — no other config needed.
           </p>
           <CodeBlock
@@ -274,7 +341,7 @@ ZERO_API_SECRET=zgs_...
 ZERO_PLATFORM=mcp
 ZERO_PLATFORM_API_URL=http://localhost:3000`}
           />
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             If <code style={mono}>ZERO_PLATFORM</code> is not set, the SDK detects MCP when <code style={mono}>@modelcontextprotocol/sdk</code> is installed. Otherwise it reports <code style={mono}>custom</code>.
           </p>
           <CodeBlock
@@ -284,10 +351,10 @@ ZERO_PLATFORM_API_URL=http://localhost:3000`}
 const zero = new ZeroGateSDK();
 // reads ZERO_AGENT_ID + ZERO_API_SECRET from process.env`}
           />
-          <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 18px', lineHeight: 1.7 }}>
+          <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', margin: '6px 0 22px', lineHeight: 1.7 }}>
             Override creds when needed: <code style={{ color: 'var(--text-dim)' }}>{`new ZeroGateSDK({ agentId, apiSecret })`}</code>
           </p>
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 14, lineHeight: 1.75 }}>
             For an MCP server consumed via Claude Desktop, the user passes the credentials in the config:
           </p>
           <CodeBlock
@@ -308,7 +375,7 @@ const zero = new ZeroGateSDK();
         </Section>
 
         <Section tag="04" title="Guard real actions">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             Create the SDK once, then call <code style={mono}>run()</code> immediately before a meaningful side effect. The action is auto-inferred from the calling function name and the platform from the runtime — use named functions so audit logs show clear action names.
           </p>
           <CodeBlock
@@ -350,7 +417,7 @@ export async function sendMessage(text: string) {
         </Section>
 
         <Section tag="05" title="MCP server pattern">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             Put the check at the edge of each tool handler. If Zero blocks the runtime, return a normal tool response and skip the side effect.
           </p>
           <InfoBox>
@@ -379,7 +446,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         </Section>
 
         <Section tag="06" title="Stronger keypair mode">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             If you do not want a shared HMAC secret in the runtime, register an Ed25519 public key and run the SDK with the private key. The private key never leaves the agent process; the backend verifies a signed one-time challenge.
           </p>
           <CodeBlock
@@ -396,22 +463,22 @@ ZERO_PRIVATE_KEY_PQC=...`}
         </Section>
 
         <Section tag="07" title="Prompt for an AI assistant">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             Paste this into Claude / Cursor / Copilot Chat / any LLM that can edit your repo. It contains the full integration contract so the assistant won&apos;t invent fields.
           </p>
           <CopyableBlock label="copy → paste into your AI assistant" code={AI_PROMPT} />
         </Section>
 
         <Section tag="08" title="Claude Code skill">
-          <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15.5, color: 'var(--text-dim)', marginBottom: 18, lineHeight: 1.75 }}>
             Save this as <code style={mono}>~/.claude/skills/zerogate-integrate/SKILL.md</code> and Claude Code will invoke it whenever you say things like &quot;integrate ZeroGate&quot; or &quot;add zero. to my project&quot;.
           </p>
           <CopyableBlock label="SKILL.md" code={SKILL_MD} />
         </Section>
 
         <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid var(--z-border)', borderRadius: 12, padding: '22px 26px', marginBottom: 48, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
-          <p style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Security notes</p>
-          <ul style={{ fontSize: 13, color: 'var(--text-dim)', lineHeight: 2, paddingLeft: 18, margin: 0 }}>
+          <p style={{ ...mono, fontSize: 11.5, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14 }}>Security notes</p>
+          <ul style={{ fontSize: 15, color: 'var(--text-dim)', lineHeight: 1.9, paddingLeft: 20, margin: 0 }}>
             <li>The HMAC secret is never sent directly. The SDK signs <code style={mono}>agentId|timestamp|nonce|action|platform</code> and verifies it server-side.</li>
             <li>Validation runs over enforced HTTPS — the SDK throws on http://.</li>
             <li>Replay protection: a per-request <code style={mono}>nonce</code> is consumed once; reused nonces fail with <code style={mono}>BLOCKED_INVALID_KEY</code>.</li>
@@ -424,8 +491,8 @@ ZERO_PRIVATE_KEY_PQC=...`}
         </div>
 
         <div style={{ textAlign: 'center' }}>
-          <p style={{ fontSize: 15, color: 'var(--text-muted)', marginBottom: 20 }}>Ship agents that can answer for what they do.</p>
-          <Link href="/login" style={{ ...mono, fontSize: 13, fontWeight: 600, padding: '12px 28px', borderRadius: 8, background: 'var(--accent)', color: '#050505', textDecoration: 'none' }}>
+          <p style={{ fontSize: 17, color: 'var(--text-muted)', marginBottom: 22 }}>Ship agents that can answer for what they do.</p>
+          <Link href="/login" style={{ ...mono, fontSize: 14, fontWeight: 600, padding: '14px 30px', borderRadius: 8, background: 'var(--accent)', color: '#050505', textDecoration: 'none' }}>
             Create your first agent -&gt;
           </Link>
         </div>
