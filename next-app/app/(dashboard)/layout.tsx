@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const nav = [
   { href: '/agents', label: 'Dashboard' },
   { href: '/audit-log', label: 'Audit log' },
-  { href: '/alerts', label: 'Alerts' },
 ];
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
@@ -164,7 +163,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         display: 'flex', flexDirection: 'column',
         position: 'fixed', top: 0, left: 0, bottom: 0,
         zIndex: 10,
-        background: 'linear-gradient(180deg, rgba(10,12,8,0.55) 0%, rgba(5,5,5,0.5) 100%)',
+        background: 'linear-gradient(180deg, rgba(28,32,22,0.42) 0%, rgba(18,22,14,0.38) 100%)',
         backdropFilter: 'blur(40px) saturate(160%)',
         WebkitBackdropFilter: 'blur(40px) saturate(160%)',
         transform: expanded ? 'translateX(0)' : `translateX(-${SIDEBAR_WIDTH}px)`,

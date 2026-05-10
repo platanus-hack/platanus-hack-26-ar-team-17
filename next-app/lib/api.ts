@@ -130,6 +130,3 @@ export const auditApi = {
   },
 };
 
-export const alertsApi = {
-  list: (token: string) => req<AuditLog[]>('/api/alerts', token),
-};
