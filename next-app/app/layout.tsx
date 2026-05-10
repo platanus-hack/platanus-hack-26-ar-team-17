@@ -5,37 +5,37 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL('https://platanus-hack-26-ar-team-17.vercel.app'),
   title: {
-    default: 'Zero — The License Plate for AI Agents',
+    default: 'Zero - La patente de los agentes de IA',
     template: '%s | Zero',
   },
   description:
-    'Identity, permissions and accountability for AI agents. Register an agent, assign an owner, define permissions, and verify every action in real time. Built at Platanus Hack.',
+    'Identidad, permisos y trazabilidad para agentes de IA. Registra un agente, asígnale un responsable, define permisos y verifica cada acción en tiempo real.',
   keywords: [
-    'AI agents',
-    'agent identity',
-    'agent authentication',
-    'agent authorization',
+    'agentes de IA',
+    'identidad de agentes',
+    'autenticación de agentes',
+    'autorización de agentes',
     'API keys',
-    'KYC for agents',
-    'agentic AI',
-    'Internet of Agents',
+    'KYC para agentes',
+    'IA agéntica',
+    'Internet de Agentes',
     'Platanus Hack',
   ],
   authors: [{ name: 'Zero' }],
   creator: 'Zero',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    title: "Internet wasn't built for AI agents. Zero fixes that.",
+    locale: 'es_AR',
+    title: 'Internet no fue construida para agentes de IA. Zero lo arregla.',
     description:
-      'The identity layer for the Internet of Agents. Register an agent, assign an owner, define permissions, and verify every action in real time.',
+      'La capa de identidad para la Internet de Agentes. Registra un agente, asígnale un responsable, define permisos y verifica cada acción en tiempo real.',
     siteName: 'Zero',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'The license plate for AI agents.',
+    title: 'La patente de los agentes de IA.',
     description:
-      'Identity, permissions and accountability for the Internet of Agents. Built at Platanus Hack.',
+      'Identidad, permisos y accountability para la Internet de Agentes. Construido en Platanus Hack.',
   },
   robots: {
     index: true,
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es-AR">
       <head>
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <meta name="theme-color" content="#050505" />

@@ -7,8 +7,8 @@ import { MeshGradient } from '@paper-design/shaders-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const nav = [
-  { href: '/agents', label: 'Dashboard' },
-  { href: '/audit-log', label: 'Audit log' },
+  { href: '/agents', label: 'Panel' },
+  { href: '/audit-log', label: 'Auditoría' },
 ];
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
@@ -37,7 +37,7 @@ function FluidBackground() {
           offsetX={0.05}
         />
       )}
-      {/* Heavy dark veil so dense dashboard content stays readable */}
+      {/* Heavy dark veil so dense panel content stays readable */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(5,5,5,0.78)' }} />
       <div style={{
         position: 'absolute', inset: 0,
@@ -114,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!mounted || !cookieSyncDone || !token) return (
     <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ ...mono, fontSize: 12, color: '#3a3a3a' }}>loading…</span>
+      <span style={{ ...mono, fontSize: 12, color: '#3a3a3a' }}>cargando...</span>
     </div>
   );
 
@@ -187,7 +187,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span style={{ color: 'var(--accent)', fontSize: 26, fontWeight: 600 }}>.</span>
           </Link>
           <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', marginTop: 7, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            dashboard
+            panel
           </p>
           {displayName && (
             <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.35 }}>
@@ -225,7 +225,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Sign out */}
+        {/* Cerrar sesión */}
         <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <button
             onClick={logout}
@@ -239,7 +239,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
           >
-            Sign out
+            Cerrar sesión
           </button>
         </div>
       </aside>

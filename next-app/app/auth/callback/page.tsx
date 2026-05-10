@@ -23,18 +23,18 @@ export default function CallbackPage() {
         if (code) {
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError || !data.session?.access_token) {
-            throw new Error(exchangeError?.message ?? 'Failed to exchange code');
+            throw new Error(exchangeError?.message ?? 'No se pudo intercambiar el código');
           }
           accessToken = data.session.access_token;
         } else if (hashParams.has('access_token')) {
           accessToken = hashParams.get('access_token');
-          if (!accessToken) throw new Error('No access token found');
+          if (!accessToken) throw new Error('No se encontró token de acceso');
           window.history.replaceState(null, '', window.location.pathname);
         } else {
           // Implicit flow: Supabase already set the session from the hash
           const { data, error: sessionError } = await supabase.auth.getSession();
           if (sessionError || !data.session?.access_token) {
-            throw new Error(sessionError?.message ?? 'No session found');
+            throw new Error(sessionError?.message ?? 'No se encontró sesión');
           }
           accessToken = data.session.access_token;
         }
@@ -55,7 +55,7 @@ export default function CallbackPage() {
         // New or pending user — redirect to Didit for KYC.
         window.location.href = result.verification_url;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'OAuth callback failed';
+        const msg = err instanceof Error ? err.message : 'Falló el callback de OAuth';
         setError(msg);
         setLoading(false);
         setTimeout(() => router.push('/login'), 3000);
@@ -80,7 +80,7 @@ export default function CallbackPage() {
     >
       {loading ? (
         <>
-          <div style={{ fontSize: 18, fontWeight: 500 }}>Completing sign-in…</div>
+          <div style={{ fontSize: 18, fontWeight: 500 }}>Completando inicio de sesión...</div>
           <div
             style={{
               width: 32,
@@ -95,7 +95,7 @@ export default function CallbackPage() {
       ) : (
         <>
           <div style={{ fontSize: 18, fontWeight: 500, color: '#ff6b6b' }}>Error: {error}</div>
-          <div style={{ fontSize: 14, color: 'rgba(245,245,245,0.6)' }}>Redirecting…</div>
+          <div style={{ fontSize: 14, color: 'rgba(245,245,245,0.6)' }}>Redirigiendo...</div>
         </>
       )}
       <style jsx>{`

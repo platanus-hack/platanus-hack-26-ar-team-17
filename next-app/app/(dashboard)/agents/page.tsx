@@ -14,17 +14,17 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
 
 const PLATFORMS = [
-  { value: 'all', label: 'All platforms', icon: '∞' },
+  { value: 'all', label: 'Todas las plataformas', icon: '∞' },
   { value: 'whatsapp', label: 'WhatsApp', icon: '◎' },
   { value: 'telegram', label: 'Telegram', icon: '◈' },
   { value: 'slack', label: 'Slack', icon: '◆' },
-  { value: 'api', label: 'Direct API', icon: '⟨⟩' },
-  { value: 'custom', label: 'Custom', icon: '◇' },
+  { value: 'api', label: 'API directa', icon: '⟨⟩' },
+  { value: 'custom', label: 'Personalizado', icon: '◇' },
 ];
 
 const TYPES: { value: AgentType; label: string; icon: string; hint: string }[] = [
-  { value: 'agent', label: 'Agent', icon: '◎', hint: 'Platform-bound, gets an API key' },
-  { value: 'mcp', label: 'MCP server', icon: '⬡', hint: 'URL endpoint for tool calls' },
+  { value: 'agent', label: 'Agente', icon: '◎', hint: 'Atado a una plataforma, recibe una API key' },
+  { value: 'mcp', label: 'Servidor MCP', icon: '⬡', hint: 'Endpoint URL para llamadas de herramientas' },
 ];
 
 const RESULT_COLORS: Record<string, string> = {
@@ -46,7 +46,7 @@ function StatusPill({ status }: { status: 'ACTIVE' | 'DISABLED' | 'REVOKED' | st
       <span style={{ fontSize: 7, animation: active ? 'pulse 2s ease-in-out infinite' : 'none' }}>
         {active ? '●' : '○'}
       </span>
-      {active ? 'active' : status.toLowerCase()}
+      {active ? 'activo' : status === 'DISABLED' ? 'deshabilitado' : status === 'REVOKED' ? 'revocado' : status.toLowerCase()}
     </span>
   );
 }
@@ -75,7 +75,7 @@ function ResultBadge({ result }: { result: string }) {
       padding: '3px 8px', borderRadius: 999,
       background: `${color}11`, color, border: `1px solid ${color}33`,
     }}>
-      {result === 'SUCCESS' ? '✓ success' : result.replace('BLOCKED_', '').toLowerCase()}
+      {result === 'SUCCESS' ? '✓ éxito' : result.replace('BLOCKED_', '').toLowerCase()}
     </span>
   );
 }
@@ -106,7 +106,7 @@ function InlineCopy({ value, mask }: { value: string; mask?: boolean }) {
       {mask && (
         <button
           onClick={() => setRevealed(r => !r)}
-          aria-label={revealed ? 'Hide' : 'Reveal'}
+          aria-label={revealed ? 'Ocultar' : 'Mostrar'}
           style={{
             padding: 10, borderRadius: 999, cursor: 'pointer',
             background: 'rgba(255,255,255,0.05)',
@@ -121,7 +121,7 @@ function InlineCopy({ value, mask }: { value: string; mask?: boolean }) {
       )}
       <button
         onClick={copy}
-        aria-label={copied ? 'Copied' : 'Copy'}
+        aria-label={copied ? 'Copiado' : 'Copiar'}
         style={{
           padding: 10, borderRadius: 999, cursor: 'pointer',
           background: copied ? 'rgba(200,245,66,0.12)' : 'rgba(255,255,255,0.05)',
@@ -150,7 +150,7 @@ function CopyReveal({ label, value, hint, onDismiss, mask }: {
       <button onClick={onDismiss} style={{
         ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 12,
         background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-      }}>Dismiss</button>
+      }}>Cerrar</button>
     </div>
   );
 }
@@ -203,7 +203,7 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
       const key = d.toISOString().slice(0, 10);
       buckets.push({
         key,
-        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        label: d.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' }),
         success: 0, blocked: 0,
       });
     }
@@ -231,10 +231,10 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
   return (
     <div style={{ padding: '12px 14px' }}>
       <div style={{ display: 'flex', gap: 22, marginBottom: 10, flexWrap: 'wrap' }}>
-        <Stat label="14-day total" value={total.toLocaleString()} />
-        <Stat label="Success" value={successTotal.toLocaleString()} />
-        <Stat label="Blocked" value={blockedTotal.toLocaleString()} />
-        <Stat label="Success rate" value={total ? `${Math.round((successTotal / total) * 100)}%` : '—'} />
+        <Stat label="Total 14 días" value={total.toLocaleString()} />
+        <Stat label="Éxito" value={successTotal.toLocaleString()} />
+        <Stat label="Bloqueadas" value={blockedTotal.toLocaleString()} />
+        <Stat label="Tasa de éxito" value={total ? `${Math.round((successTotal / total) * 100)}%` : '—'} />
       </div>
 
       <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -262,7 +262,7 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
                     x={x} y={yTop} width={barW} height={blockedH}
                     fill="rgba(255,92,92,0.55)" rx={2}
                   >
-                    <title>{`${d.label}: ${d.blocked} blocked`}</title>
+                    <title>{`${d.label}: ${d.blocked} bloqueadas`}</title>
                   </rect>
                 )}
                 {/* success stack (bottom) */}
@@ -271,7 +271,7 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
                     x={x} y={yTop + blockedH} width={barW} height={successH}
                     fill="rgba(200,245,66,0.7)" rx={2}
                   >
-                    <title>{`${d.label}: ${d.success} success`}</title>
+                    <title>{`${d.label}: ${d.success} exitosas`}</title>
                   </rect>
                 )}
                 {/* empty placeholder */}
@@ -344,7 +344,7 @@ function UserBubble({ children, onEdit }: { children: React.ReactNode; onEdit?: 
         display: 'inline-flex', alignItems: 'center', gap: 10,
       }}>
         {children}
-        {onEdit && <span style={{ fontSize: 12, opacity: 0.55 }}>edit</span>}
+        {onEdit && <span style={{ fontSize: 12, opacity: 0.55 }}>editar</span>}
       </button>
     </div>
   );
@@ -377,7 +377,7 @@ function CreateAgentWizard({
     if (!name) return;
     setCreating(true); setError('');
     try { await onSubmit({ name: name.trim(), type: 'agent', platform: 'all' }); }
-    catch (err) { setError((err as Error).message ?? 'Something went wrong'); setCreating(false); }
+    catch (err) { setError((err as Error).message ?? 'Algo salió mal'); setCreating(false); }
   }
 
   return (
@@ -389,22 +389,22 @@ function CreateAgentWizard({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 10px rgba(200,245,66,0.5)', animation: 'pulse 2s ease-in-out infinite' }} />
-            <h2 style={{ ...grotesk, fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>new agent</h2>
+            <h2 style={{ ...grotesk, fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', margin: 0 }}>nuevo agente</h2>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{
+          <button onClick={onClose} aria-label="Cerrar" style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--text-muted)', fontSize: 20, lineHeight: 1, padding: '4px 6px',
           }}>✕</button>
         </div>
 
         <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <SystemBubble>What should we call your new agent?</SystemBubble>
+          <SystemBubble>¿Cómo llamamos a tu nuevo agente?</SystemBubble>
 
           {step === 'name' ? (
             <form onSubmit={commitName} className="fade-in" style={{ display: 'flex', gap: 8, alignItems: 'stretch', paddingLeft: 36 }}>
               <input className="z-input" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Sales Bot, Support Agent…" autoFocus style={{ flex: 1 }} />
-              <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={mono}>Continue</button>
+                placeholder="Bot de ventas, agente de soporte..." autoFocus style={{ flex: 1 }} />
+              <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={mono}>Continuar</button>
             </form>
           ) : (
             <UserBubble onEdit={() => setStep('name')}>{name}</UserBubble>
@@ -412,7 +412,7 @@ function CreateAgentWizard({
 
           {step === 'ready' && (
             <>
-              <SystemBubble delay={150}>Ready when you are.</SystemBubble>
+              <SystemBubble delay={150}>Listo cuando quieras.</SystemBubble>
               <div className="fade-in" style={{ paddingLeft: 36, animationDelay: '300ms', animationFillMode: 'both' }}>
                 {error && (
                   <div className="form-error" style={{ marginBottom: 12 }}>
@@ -420,7 +420,7 @@ function CreateAgentWizard({
                   </div>
                 )}
                 <button type="button" onClick={submit} disabled={creating} className="btn btn-primary" style={mono}>
-                  {creating ? 'Creating…' : 'Create agent'}
+                  {creating ? 'Creando...' : 'Crear agente'}
                 </button>
               </div>
             </>
@@ -569,45 +569,45 @@ export default function DashboardPage() {
       {reveal?.kind === 'credentials' && (
         <div className="key-reveal fade-in" style={{ marginBottom: 28 }}>
           <p style={{ ...mono, fontSize: 13, color: 'var(--accent)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span>⬡</span> Agent created — credentials
+            <span>⬡</span> Agente creado — credenciales
             <span style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', textTransform: 'none', letterSpacing: 0 }}>
-              · use these in <code style={{ color: 'var(--text-dim)' }}>X-Zero-Agent-Id</code> + <code style={{ color: 'var(--text-dim)' }}>X-Zero-Api-Secret</code>
+              · úsalas en <code style={{ color: 'var(--text-dim)' }}>X-Zero-Agent-Id</code> + <code style={{ color: 'var(--text-dim)' }}>X-Zero-Api-Secret</code>
             </span>
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>agent id</p>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>id del agente</p>
               <InlineCopy value={reveal.agentId} />
             </div>
             <div>
-              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>api secret (HMAC)</p>
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>secreto API (HMAC)</p>
               <InlineCopy value={reveal.apiSecret} mask />
             </div>
           </div>
           <button onClick={() => setReveal(null)} style={{
             ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 14,
             background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-          }}>Dismiss</button>
+          }}>Cerrar</button>
         </div>
       )}
       {reveal?.kind === 'url' && (
-        <CopyReveal label="MCP endpoint" hint="point your MCP client at this URL" value={reveal.url} onDismiss={() => setReveal(null)} />
+        <CopyReveal label="Endpoint MCP" hint="apunta tu cliente MCP a esta URL" value={reveal.url} onDismiss={() => setReveal(null)} />
       )}
 
       {/* KYC banner */}
       {kycBlocked && (
         <div className="kyc-banner fade-in">
           <div>
-            <p style={{ ...mono, fontSize: 13, color: '#ffb84d', marginBottom: 4 }}>Identity verification required</p>
+            <p style={{ ...mono, fontSize: 13, color: '#ffb84d', marginBottom: 4 }}>Verificación de identidad requerida</p>
             <p style={{ fontSize: 13.5, color: 'var(--text-dim)' }}>
-              You need to verify your identity before creating agents.
+              Debes verificar tu identidad antes de crear agentes.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             {kycUrl && (
-              <a href={kycUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={mono}>Continue</a>
+              <a href={kycUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={mono}>Continuar</a>
             )}
-            <button className="btn btn-primary" style={mono} onClick={() => router.push('/kyc')}>Verify now</button>
+            <button className="btn btn-primary" style={mono} onClick={() => router.push('/kyc')}>Verificar ahora</button>
           </div>
         </div>
       )}
@@ -615,13 +615,13 @@ export default function DashboardPage() {
       {/* HERO */}
       <section style={{ flexShrink: 0, padding: '8px 0 28px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={sectionLabel}>success rate · last 14 days</p>
+          <p style={sectionLabel}>tasa de éxito · últimos 14 días</p>
           <button
             onClick={() => { setShowCreate(true); setKycBlocked(false); }}
             className="btn btn-primary"
             style={mono}
           >
-            New agent
+            Nuevo agente
           </button>
         </div>
 
@@ -642,11 +642,11 @@ export default function DashboardPage() {
           marginTop: 14, letterSpacing: '0.02em',
           display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap',
         }}>
-          <span>{totalCalls.toLocaleString()} calls</span>
+          <span>{totalCalls.toLocaleString()} llamadas</span>
           <span style={{ color: 'var(--text-faint)' }}>·</span>
-          <span>{blockedCalls} blocked</span>
+          <span>{blockedCalls} bloqueadas</span>
           <span style={{ color: 'var(--text-faint)' }}>·</span>
-          <span>{activeAgents.length} active agent{activeAgents.length === 1 ? '' : 's'}</span>
+          <span>{activeAgents.length} agente{activeAgents.length === 1 ? '' : 's'} activo{activeAgents.length === 1 ? '' : 's'}</span>
         </p>
       </section>
 
@@ -663,23 +663,23 @@ export default function DashboardPage() {
           display: 'flex', flexDirection: 'column', minHeight: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '20px 0 8px' }}>
-            <p style={sectionLabel}>agents</p>
+            <p style={sectionLabel}>agentes</p>
             <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: '0.06em' }}>
-              {activeAgents.length} of {agents.length}
+              {activeAgents.length} de {agents.length}
             </span>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginRight: -8, paddingRight: 8 }}>
             {loading ? (
-              <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', padding: '24px 0' }}>loading agents…</p>
+              <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', padding: '24px 0' }}>cargando agentes...</p>
             ) : agents.length === 0 ? (
               <div style={{ padding: '32px 0' }}>
-                <p style={{ ...grotesk, fontSize: 18, fontWeight: 500, marginBottom: 6, color: 'var(--text-dim)' }}>No agents yet</p>
+                <p style={{ ...grotesk, fontSize: 18, fontWeight: 500, marginBottom: 6, color: 'var(--text-dim)' }}>Aún no hay agentes</p>
                 <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-faint)', marginBottom: 16 }}>
-                  Create your first agent — an MCP server or platform bot.
+                  Crea tu primer agente: un servidor MCP o un bot de plataforma.
                 </p>
                 <button onClick={() => { setShowCreate(true); setKycBlocked(false); }} className="btn btn-primary" style={mono}>
-                  New agent
+                  Nuevo agente
                 </button>
               </div>
             ) : (
@@ -708,9 +708,9 @@ export default function DashboardPage() {
                         {a.name}
                       </div>
                       <div style={{ ...mono, fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4, letterSpacing: '0.01em' }}>
-                        {isMcp ? 'mcp' : `${a.platform} agent`}
+                        {isMcp ? 'mcp' : `agente ${a.platform}`}
                         <span style={{ opacity: 0.4, margin: '0 6px' }}>·</span>
-                        {callsForAgent} call{callsForAgent === 1 ? '' : 's'}
+                        {callsForAgent} llamada{callsForAgent === 1 ? '' : 's'}
                       </div>
                     </div>
                     <span style={{
@@ -739,17 +739,17 @@ export default function DashboardPage() {
           display: 'flex', flexDirection: 'column', minHeight: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '20px 0 8px' }}>
-            <p style={sectionLabel}>live</p>
+            <p style={sectionLabel}>actividad</p>
             <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', display: 'inline-flex', alignItems: 'center', gap: 6, letterSpacing: '0.06em' }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px rgba(200,245,66,0.5)', animation: 'pulse 2s ease-in-out infinite' }} />
-              streaming
+              en vivo
             </span>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginRight: -8, paddingRight: 8 }}>
             {logs.length === 0 ? (
               <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', padding: '24px 0' }}>
-                nothing yet — actions will appear as agents run.
+                Todavía no hay actividad. Las acciones aparecerán cuando corran los agentes.
               </p>
             ) : (
               logs.slice(0, 60).map((log, i) => {
@@ -778,14 +778,14 @@ export default function DashboardPage() {
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {log.action}
-                        {isBlocked && <span style={{ color: '#ff8a8a', marginLeft: 8, fontSize: 10.5, letterSpacing: '0.04em' }}>blocked</span>}
+                        {isBlocked && <span style={{ color: '#ff8a8a', marginLeft: 8, fontSize: 10.5, letterSpacing: '0.04em' }}>bloqueado</span>}
                       </div>
                       <div style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', marginTop: 2, letterSpacing: '0.02em' }}>
                         {log.platform}
                       </div>
                     </div>
                     <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: '0.02em' }}>
-                      {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(log.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 );
@@ -804,12 +804,12 @@ export default function DashboardPage() {
       }}>
         <span style={sectionLabel}>user hash</span>
         <span style={{ ...mono, fontSize: 12.5, color: 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
-          {userHash || 'loading…'}
+          {userHash || 'cargando...'}
         </span>
         {userHash && (
           <button
             onClick={() => navigator.clipboard.writeText(userHash)}
-            aria-label="Copy user hash"
+            aria-label="Copiar hash de usuario"
             style={{
               padding: 8, borderRadius: 999, cursor: 'pointer',
               background: 'transparent',
@@ -830,7 +830,7 @@ export default function DashboardPage() {
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-dim)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
         >
-          view audit log →
+          ver auditoría →
         </Link>
       </div>
 
@@ -839,19 +839,19 @@ export default function DashboardPage() {
         <CreateAgentWizard onClose={() => setShowCreate(false)} onSubmit={handleCreate} />
       )}
 
-      {/* Delete agent modal */}
+      {/* Eliminar agente modal */}
       {showDelete && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowDelete(null)}>
           <div className="modal-box fade-in">
             <h2 style={{ ...grotesk, fontSize: 18, fontWeight: 600, letterSpacing: '-0.03em', marginBottom: 6, color: 'var(--danger)' }}>
-              Delete agent
+              Eliminar agente
             </h2>
             <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 18, lineHeight: 1.6 }}>
-              This revokes <span style={{ color: 'var(--text-dim)' }}>all keys</span> for this agent and stops it from validating.
-              Audit history is preserved.
+              Esto revoca <span style={{ color: 'var(--text-dim)' }}>todas las claves</span> de este agente y evita que siga validando.
+              El historial de auditoría se conserva.
             </p>
             <p style={{ ...mono, fontSize: 13, color: 'var(--text-faint)', marginBottom: 10 }}>
-              Type <span style={{ color: 'var(--text-dim)' }}>{showDelete.name}</span> to confirm:
+              Escribe <span style={{ color: 'var(--text-dim)' }}>{showDelete.name}</span> para confirmar:
             </p>
             <div className="field">
               <input
@@ -864,7 +864,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button type="button" onClick={() => setShowDelete(null)} className="btn btn-secondary" style={{ flex: 1, ...mono }}>
-                Cancel
+                Cancelar
               </button>
               <button
                 type="button"
@@ -873,7 +873,7 @@ export default function DashboardPage() {
                 className="btn btn-danger"
                 style={{ flex: 2, ...mono }}
               >
-                {deleting === showDelete.id ? 'Deleting…' : 'Delete agent'}
+                {deleting === showDelete.id ? 'Eliminando...' : 'Eliminar agente'}
               </button>
             </div>
           </div>

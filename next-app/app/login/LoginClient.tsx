@@ -33,8 +33,6 @@ export default function LoginClient() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
 
-  // Rescue case: Supabase implicit-flow leak landing on /login#access_token=...
-  // Forward the hash to /auth/callback so the standard exchange flow can finish.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash;
@@ -58,7 +56,7 @@ export default function LoginClient() {
       });
       if (oauthError) throw oauthError;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Sign in failed');
+      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
       setStatus('idle');
     }
   }
@@ -80,9 +78,9 @@ export default function LoginClient() {
         </div>
 
         <div className="auth-card" style={{ padding: '72px 36px 76px' }}>
-          <h1 className="auth-card-title" style={{ fontSize: 24 }}>Welcome back</h1>
+          <h1 className="auth-card-title" style={{ fontSize: 24 }}>Te damos la bienvenida</h1>
           <p className="auth-card-sub" style={{ fontSize: 15, marginTop: 18, marginBottom: 76 }}>
-            Sign in with Google. We&apos;ll run the biometric step next.
+            Inicia sesión con Google. Luego haremos la verificación biométrica.
           </p>
 
           <button
@@ -112,7 +110,7 @@ export default function LoginClient() {
             }}
           >
             <GoogleGlyph />
-            Continue with Google
+            Continuar con Google
           </button>
 
           {status !== 'idle' && (
@@ -121,22 +119,22 @@ export default function LoginClient() {
               marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             }}>
               <Spinner />
-              {status === 'authenticating' && 'opening google…'}
-              {status === 'forwarding' && 'completing sign-in…'}
+              {status === 'authenticating' && 'abriendo Google...'}
+              {status === 'forwarding' && 'completando inicio de sesión...'}
             </div>
           )}
 
           {error && (
             <div className="form-error fade-in" style={{ marginTop: 16 }}>
-              <span>⚠</span> {error}
+              <span>!</span> {error}
             </div>
           )}
         </div>
 
         <p className="auth-footer" style={{ fontSize: 14 }}>
-          New here?{' '}
+          ¿Nuevo por aquí?{' '}
           <Link href="/onboard" className="z-link">
-            Create an account
+            Crear una cuenta
           </Link>
         </p>
       </div>
