@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 
 export function generateNonce(): string {
-  return crypto.randomBytes(32).toString('hex');
+  return crypto.randomBytes(16).toString('hex');
 }
 
 export function buildPayload(
@@ -14,6 +14,6 @@ export function buildPayload(
   return `${agentId}|${timestamp}|${nonce}|${action}|${platform}`;
 }
 
-export function signPayload(secret: string, payload: string): string {
-  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+export function signPayload(apiSecret: string, payload: string): string {
+  return crypto.createHmac('sha256', apiSecret).update(payload).digest('hex');
 }
