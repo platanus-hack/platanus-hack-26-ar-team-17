@@ -13,6 +13,7 @@ const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospac
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
 
 const PLATFORMS = [
+  { value: 'all', label: 'All platforms', icon: '∞' },
   { value: 'whatsapp', label: 'WhatsApp', icon: '◎' },
   { value: 'telegram', label: 'Telegram', icon: '◈' },
   { value: 'slack', label: 'Slack', icon: '◆' },
@@ -285,7 +286,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 
 /* ─── Create agent wizard (kept from prior version) ─── */
 
-type WizardStep = 'name' | 'platform' | 'ready';
+type WizardStep = 'name' | 'ready';
 
 function SystemBubble({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
@@ -328,7 +329,6 @@ function CreateAgentWizard({
 }) {
   const [step, setStep] = useState<WizardStep>('name');
   const [name, setName] = useState('');
-  const [platform, setPlatform] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -341,20 +341,15 @@ function CreateAgentWizard({
   function commitName(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    setStep('platform');
+    setStep('ready');
   }
-  function pickPlatform(p: string) { setPlatform(p); setStep('ready'); }
 
   async function submit() {
-    if (!name || !platform) return;
+    if (!name) return;
     setCreating(true); setError('');
-    try { await onSubmit({ name: name.trim(), type: 'agent', platform }); }
+    try { await onSubmit({ name: name.trim(), type: 'agent', platform: 'all' }); }
     catch (err) { setError((err as Error).message ?? 'Something went wrong'); setCreating(false); }
   }
-
-  const platformMeta = platform
-    ? (PLATFORMS.find(p => p.value === platform) ?? null)
-    : null;
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -383,31 +378,7 @@ function CreateAgentWizard({
               <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={mono}>Continue</button>
             </form>
           ) : (
-            <UserBubble onEdit={() => { setStep('name'); setPlatform(null); }}>{name}</UserBubble>
-          )}
-
-          {(step === 'platform' || step === 'ready') && (
-            <>
-              <SystemBubble>Where will it live?</SystemBubble>
-              {step === 'platform' ? (
-                <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, paddingLeft: 36 }}>
-                  {PLATFORMS.map(p => (
-                    <button key={p.value} type="button" onClick={() => pickPlatform(p.value)} style={{
-                      ...mono, fontSize: 14, padding: '13px 14px', borderRadius: 999, cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                      color: 'var(--text-muted)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    }}>
-                      <span style={{ opacity: 0.7 }}>{p.icon}</span>{p.label}
-                    </button>
-                  ))}
-                </div>
-              ) : platformMeta ? (
-                <UserBubble onEdit={() => setStep('platform')}>
-                  <span>{platformMeta.icon}</span> {platformMeta.label}
-                </UserBubble>
-              ) : null}
-            </>
+            <UserBubble onEdit={() => setStep('name')}>{name}</UserBubble>
           )}
 
           {step === 'ready' && (
