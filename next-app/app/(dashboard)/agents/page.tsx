@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { agentsApi, kycApi, Agent, AgentType } from '@/lib/api';
 
@@ -55,15 +56,17 @@ function AgentGlyph({ type }: { type: AgentType }) {
   );
 }
 
-function CopyBox({ label, value, hint, onDismiss }: {
-  label: string; value: string; hint?: string; onDismiss: () => void;
+function CopyBox({ label, value, hint, onDismiss, mask }: {
+  label: string; value: string; hint?: string; onDismiss: () => void; mask?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const [hidden, setHidden] = useState(!!mask);
   function copy() {
     navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
+  const display = mask && hidden ? '•'.repeat(Math.min(Math.max(value.length, 12), 36)) : value;
   return (
     <div className="key-reveal fade-in">
       <p style={{ ...mono, fontSize: 13, color: 'var(--accent)', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -76,19 +79,41 @@ function CopyBox({ label, value, hint, onDismiss }: {
           background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-strong)',
           padding: '12px 16px', borderRadius: 999, flex: 1,
           wordBreak: 'break-all', lineHeight: 1.6,
-        }}>{value}</code>
+        }}>{display}</code>
+        {mask && (
+          <button
+            onClick={() => setHidden(h => !h)}
+            aria-label={hidden ? 'Show key' : 'Hide key'}
+            style={{
+              padding: 12, borderRadius: 999, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'var(--text-dim)',
+              transition: 'all 120ms ease', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+            }}
+          >
+            {hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
+        )}
         <button
           onClick={copy}
+          aria-label={copied ? 'Copied' : 'Copy'}
           style={{
-            ...mono, fontSize: 13, padding: '12px 18px', borderRadius: 999, cursor: 'pointer',
+            padding: 12, borderRadius: 999, cursor: 'pointer',
             background: copied ? 'rgba(200,245,66,0.12)' : 'rgba(255,255,255,0.05)',
             border: `1px solid ${copied ? 'rgba(200,245,66,0.3)' : 'rgba(255,255,255,0.1)'}`,
             color: copied ? 'var(--accent)' : 'var(--text-dim)',
-            transition: 'all 120ms ease', whiteSpace: 'nowrap', flexShrink: 0,
+            transition: 'all 120ms ease', flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
           }}
-        >{copied ? 'copied' : 'copy'}</button>
+        >
+          {copied ? <Check size={16} /> : <Copy size={16} />}
+        </button>
       </div>
       <button onClick={onDismiss} style={{
         ...mono, fontSize: 13, color: 'var(--text-faint)', marginTop: 12,
@@ -488,7 +513,7 @@ export default function AgentsPage() {
 
       {/* Reveal */}
       {reveal?.kind === 'key' && (
-        <CopyBox label="Save this key — shown only once" value={reveal.plainKey} onDismiss={() => setReveal(null)} />
+        <CopyBox label="API key" value={reveal.plainKey} mask onDismiss={() => setReveal(null)} />
       )}
       {reveal?.kind === 'url' && (
         <CopyBox label="MCP endpoint" hint="point your MCP client at this URL" value={reveal.url} onDismiss={() => setReveal(null)} />
