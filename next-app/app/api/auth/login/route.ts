@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { supabase } from '@/lib/db/supabase';
 import { revokeToken, verifyToken } from '@/lib/services/token.service';
 import { getProfileByUserId, createProfile } from '@/lib/services/profile.service';
-import { createVerificationSession } from '@/lib/services/didit.service';
+import { createVerificationSession, getKycPortraitAsBase64 } from '@/lib/services/didit.service';
 import { createPendingLoginAttempt } from '@/lib/services/loginAttempt.service';
 import { clearSessionCookie, APP_SESSION_COOKIE } from '@/lib/cookies';
 import { checkRateLimit } from '@/lib/rateLimiter';
@@ -86,19 +86,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'misconfigured', missing: 'DIDIT_BIOMETRIC_WORKFLOW_ID' }, { status: 500 });
   }
 
-  const session = await createVerificationSession({
-    userId: user.id,
-    workflowId: biometricWorkflowId,
-    callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
-  });
+  // Didit requires a portrait_image for biometric face match. Pull the one
+  // captured during the user's original KYC and pass it base64-encoded.
+  let portraitImage: string | undefined;
+  if (profile.didit_kyc_session_id) {
+    try {
+      const fetched = await getKycPortraitAsBase64(profile.didit_kyc_session_id);
+      if (fetched) portraitImage = fetched;
+    } catch (err) {
+      console.error('failed to fetch KYC portrait for biometric session:', err);
+    }
+  }
+  if (!portraitImage) {
+    return NextResponse.json({ error: 'portrait_unavailable' }, { status: 500 });
+  }
 
-  await createPendingLoginAttempt(session.session_id, user.id);
+  try {
+    const session = await createVerificationSession({
+      userId: user.id,
+      workflowId: biometricWorkflowId,
+      callbackUrl: `${config.SITE_URL}/auth/didit-callback?intent=login`,
+      portraitImage,
+    });
 
-  return NextResponse.json({
-    mode: 'biometric',
-    verification_url: session.url,
-    session_id: session.session_id,
-  });
+    await createPendingLoginAttempt(session.session_id, user.id);
+
+    return NextResponse.json({
+      mode: 'biometric',
+      verification_url: session.url,
+      session_id: session.session_id,
+    });
+  } catch (err) {
+    console.error('login (biometric) error:', err);
+    return NextResponse.json({ error: 'internal' }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {

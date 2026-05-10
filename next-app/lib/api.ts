@@ -1,18 +1,44 @@
 export type KycStatus = 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
 
+export type AgentType = 'agent' | 'mcp';
+
+export interface Agent {
+  id: string;
+  user_id: string;
+  name: string;
+  type: AgentType;
+  platform: string;
+  status: 'ACTIVE' | 'DISABLED';
+  created_at: string;
+  mcp_url?: string | null;
+}
+
 export interface ApiKey {
   id: string;
+  agent_id: string;
+  agent_name?: string;
+  agent_type?: AgentType;
   name: string;
   platform: string;
   prefix: string;
-  scope: string[];
+  scope?: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at?: string | null;
 }
 
+export interface AgentKeySummary {
+  id: string;
+  name: string;
+  prefix: string;
+  status: 'ACTIVE' | 'REVOKED';
+  created_at: string;
+  revoked_at: string | null;
+}
+
 export interface AuditLog {
   id: string;
+  agent_id?: string | null;
   api_key_id?: string | null;
   user_id?: string | null;
   action: string;
@@ -54,10 +80,30 @@ export const authApi = {
     }),
 };
 
+export const agentsApi = {
+  list: (token: string) => req<Agent[]>('/api/agents', token),
+  get: (token: string, agentId: string) =>
+    req<{ agent: Agent; keys: AgentKeySummary[] }>(`/api/agents/${agentId}`, token),
+  create: (
+    token: string,
+    data: { name: string; platform: string; type: AgentType },
+  ) =>
+    req<{
+      agent: Agent;
+      key: { id: string; plainKey: string; prefix: string } | null;
+    }>('/api/agents', token, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  disable: (token: string, agentId: string) =>
+    req<{ success: true }>(`/api/agents/${agentId}`, token, { method: 'DELETE' }),
+};
+
 export const keysApi = {
-  list: (token: string) => req<ApiKey[]>('/api/keys', token),
-  create: (token: string, data: { name: string; platform?: string }) =>
-    req<{ id: string; plainKey: string; prefix: string }>('/api/keys', token, {
+  list: (token: string, agentId?: string) =>
+    req<ApiKey[]>(`/api/keys${agentId ? `?agent_id=${agentId}` : ''}`, token),
+  rotate: (token: string, data: { agent_id: string; name: string }) =>
+    req<{ id: string; plainKey: string; prefix: string; agent_id: string }>('/api/keys', token, {
       method: 'POST',
       body: JSON.stringify(data),
     }),

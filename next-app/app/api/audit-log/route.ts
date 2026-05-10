@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthUserId } from '@/lib/auth';
+import { getInternalUserId } from '@/lib/auth';
 import { supabase } from '@/lib/db/supabase';
-import { resolveInternalUserId } from '@/lib/services/profile.service';
 
 const querySchema = z.object({
+  agentId: z.string().uuid().optional(),
   keyId: z.string().optional(),
   platform: z.string().optional(),
   from: z.string().optional(),
@@ -19,30 +19,30 @@ const querySchema = z.object({
     ])
     .optional(),
   page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).optional(),
 });
 
 const PAGE_SIZE = 50;
 
 export async function GET(req: NextRequest) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const userId = await resolveInternalUserId(authUserId);
-  if (!userId) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const params = Object.fromEntries(req.nextUrl.searchParams);
   const parsed = querySchema.safeParse(params);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const { keyId, platform, from, to, result, page } = parsed.data;
+  const { agentId, keyId, platform, from, to, result, page, limit } = parsed.data;
+  const size = limit ?? PAGE_SIZE;
 
   let query = supabase
     .from('audit_logs')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', me.internalId)
     .order('created_at', { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    .range((page - 1) * size, page * size - 1);
 
+  if (agentId) query = query.eq('agent_id', agentId);
   if (keyId) query = query.eq('api_key_id', keyId);
   if (platform) query = query.eq('platform', platform);
   if (result) query = query.eq('result', result);

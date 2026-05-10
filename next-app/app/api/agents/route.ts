@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthUserId } from '@/lib/auth';
-import { createAgent, listAgents, type AgentType } from '@/lib/services/agent.service';
-import { resolveInternalUserId } from '@/lib/services/profile.service';
+import { getInternalUserId } from '@/lib/auth';
+import { createAgent, listAgentsWithMcpUrl, type AgentType, getMcpUrl } from '@/lib/services/agent.service';
+import { config } from '@/lib/config';
 
 const createBody = z.object({
   name: z.string().min(1).max(100),
@@ -11,22 +11,16 @@ const createBody = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const userId = await resolveInternalUserId(authUserId);
-  if (!userId) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
-
-  const agents = await listAgents(userId);
+  const agents = await listAgentsWithMcpUrl(me.internalId, me.userHash);
   return NextResponse.json(agents);
 }
 
 export async function POST(req: NextRequest) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const userId = await resolveInternalUserId(authUserId);
-  if (!userId) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   let rawBody: unknown;
   try {
@@ -38,10 +32,19 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
   const result = await createAgent({
-    userId,
+    userId: me.internalId,
     name: parsed.data.name,
     type: parsed.data.type as AgentType,
     platform: parsed.data.platform,
   });
-  return NextResponse.json(result, { status: 201 });
+
+  const mcp_url =
+    result.agent.type === 'mcp' && me.userHash
+      ? getMcpUrl(me.userHash, result.agent.id, config.SITE_URL)
+      : null;
+
+  return NextResponse.json(
+    { ...result, agent: { ...result.agent, mcp_url } },
+    { status: 201 },
+  );
 }

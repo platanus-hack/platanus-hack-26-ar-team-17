@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUserId } from '@/lib/auth';
+import { getInternalUserId } from '@/lib/auth';
 import { revokeApiKey } from '@/lib/services/apiKey.service';
-import { resolveInternalUserId } from '@/lib/services/profile.service';
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const userId = await resolveInternalUserId(authUserId);
-  if (!userId) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  await revokeApiKey(id, userId);
+  await revokeApiKey(id, me.internalId);
   return NextResponse.json({ success: true });
 }

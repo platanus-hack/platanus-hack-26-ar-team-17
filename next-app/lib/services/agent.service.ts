@@ -1,5 +1,6 @@
 import { supabase } from '../db/supabase';
 import { createApiKey } from './apiKey.service';
+import { config } from '../config';
 
 export type AgentType = 'agent' | 'mcp';
 
@@ -13,8 +14,26 @@ export interface Agent {
   created_at: string;
 }
 
+export interface AgentWithMcpUrl extends Agent {
+  mcp_url: string | null;
+}
+
+export interface AgentKeySummary {
+  id: string;
+  name: string;
+  prefix: string;
+  status: 'ACTIVE' | 'REVOKED';
+  created_at: string;
+  revoked_at: string | null;
+}
+
 export function getMcpUrl(userHash: string, agentId: string, baseUrl: string): string {
   return `${baseUrl}/api/mcp/${userHash}/${agentId}`;
+}
+
+function toMcpUrl(agent: Agent, userHash: string | null): string | null {
+  if (agent.type !== 'mcp' || !userHash) return null;
+  return getMcpUrl(userHash, agent.id, config.SITE_URL);
 }
 
 export async function listAgents(userId: string): Promise<Agent[]> {
@@ -33,6 +52,34 @@ export async function countAgentsForUser(userId: string): Promise<number> {
     .eq('user_id', userId);
   if (error) throw error;
   return count ?? 0;
+}
+
+export async function listAgentsWithMcpUrl(
+  userId: string,
+  userHash: string | null,
+): Promise<AgentWithMcpUrl[]> {
+  const agents = await listAgents(userId);
+  return agents.map(a => ({ ...a, mcp_url: toMcpUrl(a, userHash) }));
+}
+
+export async function getAgentWithKeys(
+  agentId: string,
+  userId: string,
+  userHash: string | null,
+): Promise<{ agent: AgentWithMcpUrl; keys: AgentKeySummary[] } | null> {
+  const agent = await getAgent(agentId, userId);
+  if (!agent) return null;
+
+  const { data: keys } = await supabase
+    .from('api_keys')
+    .select('id, name, prefix, status, created_at, revoked_at')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending: false });
+
+  return {
+    agent: { ...agent, mcp_url: toMcpUrl(agent, userHash) },
+    keys: (keys ?? []) as AgentKeySummary[],
+  };
 }
 
 export async function getAgent(agentId: string, userId: string): Promise<Agent | null> {

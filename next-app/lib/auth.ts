@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from './config';
 import { APP_SESSION_COOKIE } from './cookies';
 import { isTokenRevoked } from './services/token.service';
+import { supabase } from './db/supabase';
 
 function decodeUserSession(token: string): { userId: string; jti: string } | null {
   try {
@@ -27,7 +28,7 @@ async function sessionFromToken(token: string | undefined): Promise<string | nul
   return decoded.userId;
 }
 
-/** Supabase Auth user id (`sub`), after verifying JWT and revocation list. */
+/** Supabase Auth user id, after verifying JWT and revocation list. */
 export async function getAuthUserId(req: NextRequest): Promise<string | null> {
   const headerToken = req.headers.get('Authorization')?.replace(/^Bearer\s+/i, '') ?? undefined;
   const cookieToken = req.cookies.get(APP_SESSION_COOKIE)?.value;
@@ -42,4 +43,19 @@ export async function getAuthUserId(req: NextRequest): Promise<string | null> {
   }
 
   return null;
+}
+
+// JWT carries Supabase auth.users.id; owner-scoped tables FK to our internal users.id.
+export async function getInternalUserId(
+  req: NextRequest,
+): Promise<{ internalId: string; userHash: string | null } | null> {
+  const authUserId = await getAuthUserId(req);
+  if (!authUserId) return null;
+  const { data } = await supabase
+    .from('users')
+    .select('id, hash')
+    .eq('auth_user_id', authUserId)
+    .single<{ id: string; hash: string | null }>();
+  if (!data) return null;
+  return { internalId: data.id, userHash: data.hash };
 }

@@ -1,77 +1,72 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAuthUserId } from '@/lib/auth';
-import { createAgent } from '@/lib/services/agent.service';
-import { getProfileByUserId } from '@/lib/services/profile.service';
+import { getInternalUserId } from '@/lib/auth';
 import { supabase } from '@/lib/db/supabase';
-import { ALLOWED_ACTIONS } from '@/lib/services/scope.service';
-import { normalizeAction } from '@/lib/utils/normalize';
+import { getAgent } from '@/lib/services/agent.service';
+import { createApiKey } from '@/lib/services/apiKey.service';
 
-const PLATFORMS = ['mcp', 'whatsapp', 'telegram', 'slack', 'api', 'custom'] as const;
+const rotateBody = z.object({
+  agent_id: z.string().uuid(),
+  name: z.string().min(1).max(100),
+});
 
-const createBody = z
-  .object({
-    name: z.string().min(1).max(100),
-    platform: z.enum(PLATFORMS).default('custom'),
-    scope: z.array(z.string()).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.scope !== undefined && data.scope.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'scope_empty' });
-    }
-    const scopes = data.scope ?? [];
-    for (const s of scopes) {
-      if (!ALLOWED_ACTIONS.has(normalizeAction(s))) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'invalid_scope' });
-      }
-    }
-  });
-
-export async function GET(req: NextRequest) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-  const profile = await getProfileByUserId(authUserId);
-  if (!profile) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
-
-  const { data: rows, error } = await supabase
-    .from('api_keys')
-    .select(
-      'id, name, prefix, scope, status, created_at, revoked_at, agents!inner(platform, user_id)',
-    )
-    .eq('agents.user_id', profile.id)
-    .order('created_at', { ascending: false });
-
-  if (error) return NextResponse.json({ error: 'internal' }, { status: 500 });
-
-  const keys = (rows ?? []).map((row) => {
-    const r = row as unknown as ApiKeyRow;
-    const platform = r.agents?.platform ?? 'custom';
-    const { agents: _a, ...rest } = r;
-    return { ...rest, platform };
-  });
-
-  return NextResponse.json(keys);
-}
-
-type ApiKeyRow = {
+type KeyRow = {
   id: string;
   name: string;
   prefix: string;
-  scope: string[];
-  status: string;
+  status: 'ACTIVE' | 'REVOKED';
   created_at: string;
-  revoked_at?: string | null;
-  agents?: { platform: string; user_id: string };
+  revoked_at: string | null;
+  agent_id: string;
+  agents: { name: string; platform: string; type: string; user_id: string };
 };
 
-export async function POST(req: NextRequest) {
-  const authUserId = await getAuthUserId(req);
-  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
-  const profile = await getProfileByUserId(authUserId);
-  if (!profile) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
-  if (profile.verification_status !== 'APPROVED') {
+  const filterAgentId = req.nextUrl.searchParams.get('agent_id');
+
+  let query = supabase
+    .from('api_keys')
+    .select(
+      'id, name, prefix, status, created_at, revoked_at, agent_id, agents!inner(name, platform, type, user_id)',
+    )
+    .eq('agents.user_id', me.internalId)
+    .order('created_at', { ascending: false });
+
+  if (filterAgentId) query = query.eq('agent_id', filterAgentId);
+
+  const { data } = await query;
+  const rows = (data ?? []) as unknown as KeyRow[];
+
+  return NextResponse.json(
+    rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      prefix: r.prefix,
+      status: r.status,
+      created_at: r.created_at,
+      revoked_at: r.revoked_at,
+      agent_id: r.agent_id,
+      agent_name: r.agents.name,
+      platform: r.agents.platform,
+      agent_type: r.agents.type,
+    })),
+  );
+}
+
+export async function POST(req: NextRequest) {
+  const me = await getInternalUserId(req);
+  if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('kyc_status')
+    .eq('id', me.internalId)
+    .single<{ kyc_status: string }>();
+
+  if (!user || user.kyc_status !== 'VERIFIED') {
     return NextResponse.json({ error: 'kyc_required' }, { status: 403 });
   }
 
@@ -81,31 +76,18 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
   }
-  const parsed = createBody.safeParse(rawBody);
+  const parsed = rotateBody.safeParse(rawBody);
   if (!parsed.success) return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
 
-  const keyScope = parsed.data.scope ?? Array.from(ALLOWED_ACTIONS);
-
-  const { agent, key } = await createAgent({
-    userId: profile.id,
-    name: parsed.data.name,
-    type: 'agent',
-    platform: parsed.data.platform,
-    keyName: parsed.data.name,
-    keyScope,
-  });
-
-  if (!key) {
-    return NextResponse.json({ error: 'internal' }, { status: 500 });
+  const agent = await getAgent(parsed.data.agent_id, me.internalId);
+  if (!agent) return NextResponse.json({ error: 'agent_not_found' }, { status: 404 });
+  if (agent.type === 'mcp') {
+    return NextResponse.json({ error: 'mcp_agents_have_no_keys' }, { status: 400 });
   }
 
+  const key = await createApiKey({ agentId: agent.id, name: parsed.data.name });
   return NextResponse.json(
-    {
-      id: key.id,
-      plainKey: key.plainKey,
-      prefix: key.prefix,
-      agent_id: agent.id,
-    },
+    { id: key.id, plainKey: key.plainKey, prefix: key.prefix, agent_id: agent.id },
     { status: 201 },
   );
 }
