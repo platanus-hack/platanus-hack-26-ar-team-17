@@ -71,6 +71,22 @@ export async function getProfileByUserId(authUserId: string): Promise<Profile | 
   return data ? rowToProfile(data as UsersRow) : null;
 }
 
+/** Maps Supabase Auth user id → `users.id` (FK target for agents, audit_logs, etc.). */
+export async function resolveInternalUserId(authUserId: string): Promise<string | null> {
+  const profile = await getProfileByUserId(authUserId);
+  return profile?.id ?? null;
+}
+
+/** Resuelve `users.id` a partir del hash estable de cuenta (SDK / aprovisionamiento CLI). */
+export async function resolveInternalUserIdByHash(userHash: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('hash', userHash)
+    .maybeSingle<{ id: string }>();
+  return data?.id ?? null;
+}
+
 export async function createProfile(input: ProfileInput): Promise<Profile> {
   const dbStatus = statusToDb(input.verification_status ?? 'PENDING');
   const { data, error } = await supabase

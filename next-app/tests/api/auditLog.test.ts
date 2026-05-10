@@ -7,6 +7,10 @@ jest.mock('@/lib/db/supabase', () => ({
   supabase: { from: jest.fn() },
 }));
 
+jest.mock('@/lib/services/profile.service', () => ({
+  resolveInternalUserId: jest.fn().mockResolvedValue('user_1'),
+}));
+
 const { supabase } = require('@/lib/db/supabase');
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
 const validToken = jwt.sign(

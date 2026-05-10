@@ -2,7 +2,6 @@ export type KycStatus = 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
 
 export interface ApiKey {
   id: string;
-  user_id: string;
   name: string;
   platform: string;
   prefix: string;
@@ -18,6 +17,7 @@ export interface AuditLog {
   user_id?: string | null;
   action: string;
   platform: string;
+  user_input?: string | null;
   result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   rule_violated?: string | null;
   created_at: string;

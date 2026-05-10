@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthUserId } from '@/lib/auth';
 import { supabase } from '@/lib/db/supabase';
+import { resolveInternalUserId } from '@/lib/services/profile.service';
 
 const querySchema = z.object({
   keyId: z.string().optional(),
@@ -17,8 +18,11 @@ const querySchema = z.object({
 const PAGE_SIZE = 50;
 
 export async function GET(req: NextRequest) {
-  const userId = getAuthUserId(req);
-  if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const authUserId = getAuthUserId(req);
+  if (!authUserId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const userId = await resolveInternalUserId(authUserId);
+  if (!userId) return NextResponse.json({ error: 'not_registered' }, { status: 404 });
 
   const params = Object.fromEntries(req.nextUrl.searchParams);
   const parsed = querySchema.safeParse(params);

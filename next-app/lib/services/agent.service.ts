@@ -26,6 +26,15 @@ export async function listAgents(userId: string): Promise<Agent[]> {
   return (data ?? []) as Agent[];
 }
 
+export async function countAgentsForUser(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('agents')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function getAgent(agentId: string, userId: string): Promise<Agent | null> {
   const { data } = await supabase
     .from('agents')
@@ -41,6 +50,8 @@ export async function createAgent(params: {
   name: string;
   type: AgentType;
   platform: string;
+  keyName?: string;
+  keyScope?: string[];
 }): Promise<{ agent: Agent; key: { id: string; plainKey: string; prefix: string } | null }> {
   const { data: agent, error } = await supabase
     .from('agents')
@@ -53,7 +64,11 @@ export async function createAgent(params: {
   // MCP agents don't need an API key — they auth via user hash in URL
   if (params.type === 'mcp') return { agent, key: null };
 
-  const key = await createApiKey({ agentId: agent.id, name: 'default' });
+  const key = await createApiKey({
+    agentId: agent.id,
+    name: params.keyName ?? 'default',
+    scope: params.keyScope ?? [],
+  });
   return { agent, key };
 }
 
