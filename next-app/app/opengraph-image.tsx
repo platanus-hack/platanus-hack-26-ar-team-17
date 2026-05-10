@@ -5,6 +5,16 @@ export const alt = 'Zero — The license plate for AI agents';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
+const ACCENT = '#c8f542';
+const ACCENT_GLOW = 'rgba(200,245,66,0.18)';
+const BG = '#050505';
+const BG_CARD = '#0d0d0d';
+const BORDER = '#1e1e1e';
+const BORDER_STRONG = '#2a2a2a';
+const TEXT = '#f0f0f0';
+const TEXT_DIM = '#8a8a8a';
+const TEXT_MUTED = '#5a5a5a';
+
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -15,27 +25,41 @@ export default function OpengraphImage() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          padding: '72px 80px',
-          background:
-            'radial-gradient(ellipse at 30% 20%, #0a1f2c 0%, #050505 55%, #000 100%)',
-          color: '#e8f6ff',
+          padding: '64px 72px',
+          background: BG,
+          color: TEXT,
           fontFamily: 'sans-serif',
+          letterSpacing: '-0.005em',
           position: 'relative',
         }}
       >
-        {/* Subtle grid overlay */}
+        {/* Dot-grid background (Zero auth-page vibe) */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.05) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
+              'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
             display: 'flex',
           }}
         />
 
-        {/* Top row: brand + tagline */}
+        {/* Lime glow bottom-right */}
+        <div
+          style={{
+            position: 'absolute',
+            right: -180,
+            bottom: -180,
+            width: 720,
+            height: 720,
+            borderRadius: 9999,
+            background: `radial-gradient(circle, ${ACCENT_GLOW} 0%, transparent 60%)`,
+            display: 'flex',
+          }}
+        />
+
+        {/* Header: brand mark + label */}
         <div
           style={{
             display: 'flex',
@@ -44,49 +68,78 @@ export default function OpengraphImage() {
             zIndex: 1,
           }}
         >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 12,
+                background: BG,
+                border: `1px solid ${BORDER_STRONG}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                <path
+                  d="M8 9h16l-9.5 14H24"
+                  stroke={ACCENT}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="25" cy="25" r="2" fill={ACCENT} />
+              </svg>
+            </div>
+            <div
+              style={{
+                fontSize: 32,
+                fontWeight: 600,
+                color: TEXT,
+                letterSpacing: '-0.02em',
+                display: 'flex',
+              }}
+            >
+              zero
+            </div>
+          </div>
+
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 14,
-              fontSize: 28,
-              letterSpacing: 2,
-              color: '#7dd3fc',
+              gap: 10,
+              padding: '10px 18px',
+              borderRadius: 999,
+              border: `1px solid ${BORDER}`,
+              background: BG_CARD,
+              fontSize: 18,
+              color: TEXT_DIM,
+              fontFamily: 'monospace',
               textTransform: 'uppercase',
+              letterSpacing: 2,
             }}
           >
             <div
               style={{
-                width: 14,
-                height: 14,
-                background: '#22d3ee',
+                width: 8,
+                height: 8,
                 borderRadius: 999,
-                boxShadow: '0 0 24px 6px #22d3ee',
+                background: ACCENT,
+                boxShadow: `0 0 14px 2px ${ACCENT}`,
                 display: 'flex',
               }}
             />
-            Zero
-          </div>
-          <div
-            style={{
-              fontSize: 22,
-              color: '#9ca3af',
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              display: 'flex',
-            }}
-          >
-            Built at Platanus Hack
+            built at platanus hack
           </div>
         </div>
 
-        {/* Center: license plate card */}
+        {/* Center credential card */}
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
             zIndex: 1,
           }}
         >
@@ -94,86 +147,140 @@ export default function OpengraphImage() {
             style={{
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              padding: '36px 72px',
-              borderRadius: 28,
-              background:
-                'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)',
-              border: '2px solid rgba(34,211,238,0.45)',
-              boxShadow:
-                '0 0 0 1px rgba(34,211,238,0.15) inset, 0 30px 80px rgba(34,211,238,0.18)',
+              padding: '32px 36px',
+              borderRadius: 16,
+              background: BG_CARD,
+              border: `1px solid ${BORDER}`,
+              boxShadow: `0 0 0 1px ${BORDER} inset, 0 24px 64px rgba(0,0,0,0.6)`,
             }}
           >
+            {/* Card top row */}
             <div
               style={{
-                fontSize: 28,
-                color: '#67e8f9',
-                letterSpacing: 8,
-                textTransform: 'uppercase',
-                marginBottom: 6,
                 display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 24,
               }}
             >
-              Verified Agent
+              <div
+                style={{
+                  fontSize: 16,
+                  color: TEXT_MUTED,
+                  fontFamily: 'monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: 3,
+                  display: 'flex',
+                }}
+              >
+                agent credential
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  fontSize: 16,
+                  color: ACCENT,
+                  fontFamily: 'monospace',
+                  textTransform: 'uppercase',
+                  letterSpacing: 2,
+                }}
+              >
+                <div
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: ACCENT,
+                    display: 'flex',
+                  }}
+                />
+                verified
+              </div>
             </div>
+
+            {/* Big tagline */}
             <div
               style={{
-                fontSize: 168,
-                fontWeight: 800,
-                letterSpacing: -4,
-                lineHeight: 1,
-                color: '#ffffff',
-                textShadow:
-                  '0 0 40px rgba(34,211,238,0.55), 0 0 12px rgba(255,255,255,0.4)',
+                fontSize: 76,
+                fontWeight: 700,
+                color: TEXT,
+                lineHeight: 1.05,
+                letterSpacing: '-0.03em',
                 display: 'flex',
+                flexDirection: 'column',
               }}
             >
-              ZERO
+              <div style={{ display: 'flex' }}>The license plate</div>
+              <div style={{ display: 'flex' }}>
+                for{' '}
+                <span style={{ color: ACCENT, marginLeft: 16 }}>AI agents.</span>
+              </div>
             </div>
+
+            {/* Mono ID strip */}
             <div
               style={{
-                fontSize: 30,
-                marginTop: 10,
-                color: '#a5f3fc',
-                letterSpacing: 6,
+                marginTop: 28,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                paddingTop: 20,
+                borderTop: `1px solid ${BORDER}`,
+                fontSize: 22,
                 fontFamily: 'monospace',
-                display: 'flex',
+                color: TEXT_DIM,
+                letterSpacing: 2,
               }}
             >
-              AGENT · A1B2 · C3D4
+              <span style={{ color: TEXT_MUTED, display: 'flex' }}>
+                agent_id
+              </span>
+              <span style={{ color: TEXT_MUTED, display: 'flex' }}>·</span>
+              <span style={{ color: TEXT, display: 'flex' }}>
+                agent_a1b2c3d4e5
+              </span>
+              <span style={{ color: TEXT_MUTED, display: 'flex' }}>·</span>
+              <span style={{ color: ACCENT, display: 'flex' }}>
+                permissions: 4
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Bottom: tagline */}
+        {/* Footer */}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
             zIndex: 1,
           }}
         >
           <div
             style={{
-              fontSize: 52,
-              fontWeight: 700,
-              color: '#ffffff',
-              lineHeight: 1.1,
-              letterSpacing: -1,
+              fontSize: 24,
+              color: TEXT_DIM,
+              maxWidth: 720,
+              lineHeight: 1.4,
               display: 'flex',
             }}
           >
-            The license plate for AI agents.
+            Identity, permissions and accountability for the Internet of
+            Agents.
           </div>
           <div
             style={{
-              fontSize: 28,
-              marginTop: 14,
-              color: '#94a3b8',
+              fontSize: 18,
+              color: TEXT_MUTED,
+              fontFamily: 'monospace',
+              textTransform: 'uppercase',
+              letterSpacing: 3,
               display: 'flex',
             }}
           >
-            Identity, permissions and accountability for the Internet of Agents.
+            zero / v1
           </div>
         </div>
       </div>

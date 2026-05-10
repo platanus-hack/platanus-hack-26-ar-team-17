@@ -155,25 +155,43 @@ function CopyReveal({ label, value, hint, onDismiss, mask }: {
   );
 }
 
-/* ─── Section header ─── */
+/* ─── Sparkline (hero) ─── */
 
-function SectionHeader({ title, hint, action }: { title: string; hint?: string; action?: React.ReactNode }) {
+function Sparkline({ logs, height = 48 }: { logs: AuditLog[]; height?: number }) {
+  const days = 14;
+  const data = useMemo(() => {
+    const buckets: number[] = new Array(days).fill(0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const startMs = today.getTime() - (days - 1) * 86400000;
+    for (const log of logs) {
+      const t = new Date(log.created_at).getTime();
+      const i = Math.floor((t - startMs) / 86400000);
+      if (i >= 0 && i < days) buckets[i] += 1;
+    }
+    return buckets;
+  }, [logs]);
+
+  const max = Math.max(1, ...data);
+  const W = 100, H = height;
+  const stepX = W / (data.length - 1);
+  const points = data.map((v, i) => `${(i * stepX).toFixed(2)},${(H - (v / max) * H).toFixed(2)}`).join(' ');
+  const area = `0,${H} ${points} ${W},${H}`;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14, gap: 16 }}>
-      <div>
-        <h2 style={{ ...grotesk, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', margin: 0, color: 'var(--text)' }}>
-          {title}
-        </h2>
-        {hint && (
-          <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4 }}>{hint}</p>
-        )}
-      </div>
-      {action}
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(200,245,66,0.28)" />
+          <stop offset="100%" stopColor="rgba(200,245,66,0)" />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill="url(#sparkfill)" />
+      <polyline points={points} fill="none" stroke="rgba(200,245,66,0.85)" strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
-/* ─── Activity chart (Metabase-style) ─── */
+/* ─── Activity chart (legacy, kept for /agents/[id]) ─── */
 
 function ActivityChart({ logs }: { logs: AuditLog[] }) {
   const days = 14;
@@ -205,18 +223,14 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
   const successTotal = data.reduce((s, d) => s + d.success, 0);
   const blockedTotal = total - successTotal;
 
-  const W = 720, H = 180, padX = 16, padY = 16;
+  const W = 720, H = 110, padX = 14, padY = 12;
   const innerW = W - padX * 2;
   const innerH = H - padY * 2;
   const barW = innerW / data.length - 6;
 
   return (
-    <div style={{
-      background: 'rgba(255,255,255,0.02)',
-      border: '1px solid var(--z-border)',
-      borderRadius: 12, padding: '20px 22px',
-    }}>
-      <div style={{ display: 'flex', gap: 28, marginBottom: 14, flexWrap: 'wrap' }}>
+    <div style={{ padding: '12px 14px' }}>
+      <div style={{ display: 'flex', gap: 22, marginBottom: 10, flexWrap: 'wrap' }}>
         <Stat label="14-day total" value={total.toLocaleString()} />
         <Stat label="Success" value={successTotal.toLocaleString()} />
         <Stat label="Blocked" value={blockedTotal.toLocaleString()} />
@@ -289,10 +303,10 @@ function ActivityChart({ logs }: { logs: AuditLog[] }) {
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div>
-      <div style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+      <div style={{ ...mono, fontSize: 9.5, color: 'var(--text-faint)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>
         {label}
       </div>
-      <div style={{ ...grotesk, fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: color ?? 'var(--text)' }}>
+      <div style={{ ...grotesk, fontSize: 17, fontWeight: 500, letterSpacing: '-0.02em', color: color ?? 'var(--text)' }}>
         {value}
       </div>
     </div>
@@ -507,19 +521,48 @@ export default function DashboardPage() {
   const activeAgents = agents.filter(a => a.status === 'ACTIVE');
   const userHash = userId ?? '';
 
+  const totalCalls = logs.length;
+  const blockedCalls = logs.filter(l => l.result !== 'SUCCESS').length;
+  const successCalls = totalCalls - blockedCalls;
+  const successRate = totalCalls === 0 ? null : (successCalls / totalCalls) * 100;
+  const heroPct = successRate === null ? '—' : successRate.toFixed(1);
+
+  const callsByAgent = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const log of logs) {
+      const key = (log as unknown as { agent_id?: string }).agent_id ?? '';
+      if (key) m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [logs]);
+
+  const sectionLabel: React.CSSProperties = {
+    ...mono, fontSize: 10, color: 'var(--text-faint)',
+    letterSpacing: '0.16em', textTransform: 'uppercase' as const,
+    margin: 0,
+  };
+  const hairline: React.CSSProperties = {
+    height: 1, background: 'rgba(255,255,255,0.06)',
+    margin: 0, border: 0,
+  };
+
   return (
-    <div style={{ padding: '40px 48px', maxWidth: 1040, margin: '0 auto' }}>
-      {/* Hero */}
-      <div style={{ marginBottom: 32 }}>
-        <p style={{ ...mono, fontSize: 12, color: 'var(--accent)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>
-          {displayName ? `welcome back, ${displayName.split(' ')[0]?.toLowerCase()}` : 'control room'}
-        </p>
-        <h1 style={{ ...grotesk, fontSize: 38, fontWeight: 600, letterSpacing: '-0.035em', margin: '0 0 8px', lineHeight: 1.05 }}>
-          Your agent control room<span style={{ color: 'var(--accent)' }}>.</span>
-        </h1>
-        <p style={{ ...mono, fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
-          {activeAgents.length} active agent{activeAgents.length === 1 ? '' : 's'} · {logs.length} recent action{logs.length === 1 ? '' : 's'}
-        </p>
+    <div style={{
+      height: '100dvh', overflow: 'hidden',
+      padding: '28px 56px 24px', maxWidth: 1280, margin: '0 auto',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* Thin top header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexShrink: 0, paddingBottom: 16,
+      }}>
+        <span style={{ ...grotesk, fontSize: 19, fontWeight: 600, letterSpacing: '-0.05em' }}>
+          zero<span style={{ color: 'var(--accent)' }}>.</span>
+        </span>
+        <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+          {displayName ? displayName.split(' ')[0].toLowerCase() : ''}
+        </span>
       </div>
 
       {/* Reveal banners */}
@@ -553,10 +596,10 @@ export default function DashboardPage() {
 
       {/* KYC banner */}
       {kycBlocked && (
-        <div className="kyc-banner fade-in" style={{ marginBottom: 28 }}>
+        <div className="kyc-banner fade-in">
           <div>
-            <p style={{ ...mono, fontSize: 14, color: '#ffb84d', marginBottom: 6 }}>Identity verification required</p>
-            <p style={{ fontSize: 15, color: 'var(--text-dim)' }}>
+            <p style={{ ...mono, fontSize: 13, color: '#ffb84d', marginBottom: 4 }}>Identity verification required</p>
+            <p style={{ fontSize: 13.5, color: 'var(--text-dim)' }}>
               You need to verify your identity before creating agents.
             </p>
           </div>
@@ -569,262 +612,227 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* User hash card */}
-      <section style={{ marginBottom: 36 }}>
-        <SectionHeader
-          title="Your account"
-          hint="Use this hash to identify yourself across the platform."
-        />
-        <div style={{
-          background: 'rgba(15,17,12,0.78)',
-          border: '1px solid var(--border-strong)',
-          borderRadius: 12, padding: '22px 24px',
-          display: 'grid', gridTemplateColumns: '1fr', gap: 16,
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 0 rgba(0,0,0,0.4)',
-          backdropFilter: 'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-        }}>
-          <div>
-            <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8 }}>
-              user hash
-            </p>
-            {userHash ? (
-              <InlineCopy value={userHash} />
-            ) : (
-              <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)' }}>loading…</p>
-            )}
-          </div>
+      {/* HERO */}
+      <section style={{ flexShrink: 0, padding: '8px 0 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+          <p style={sectionLabel}>success rate · last 14 days</p>
+          <button
+            onClick={() => { setShowCreate(true); setKycBlocked(false); }}
+            className="btn btn-primary"
+            style={mono}
+          >
+            New agent
+          </button>
         </div>
+
+        <div style={{
+          ...grotesk, fontSize: 92, fontWeight: 500, letterSpacing: '-0.05em',
+          lineHeight: 1, marginTop: 6,
+          fontVariantNumeric: 'tabular-nums' as const,
+        }}>
+          {heroPct}<span style={{ color: 'var(--accent)', marginLeft: 4 }}>%</span>
+        </div>
+
+        <div style={{ marginTop: 14, height: 48 }}>
+          <Sparkline logs={logs} height={48} />
+        </div>
+
+        <p style={{
+          ...mono, fontSize: 12.5, color: 'var(--text-muted)',
+          marginTop: 14, letterSpacing: '0.02em',
+          display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          <span>{totalCalls.toLocaleString()} calls</span>
+          <span style={{ color: 'var(--text-faint)' }}>·</span>
+          <span>{blockedCalls} blocked</span>
+          <span style={{ color: 'var(--text-faint)' }}>·</span>
+          <span>{activeAgents.length} active agent{activeAgents.length === 1 ? '' : 's'}</span>
+        </p>
       </section>
 
-      {/* Activity chart */}
-      <section style={{ marginBottom: 36 }}>
-        <SectionHeader
-          title="Activity"
-          hint="Agent calls over the last 14 days — success vs blocked."
-        />
-        <ActivityChart logs={logs} />
-      </section>
+      <hr style={hairline} />
 
-      {/* Agents */}
-      <section style={{ marginBottom: 36 }}>
-        <SectionHeader
-          title="Agents"
-          hint="Add or remove agents. Each agent has its own API key."
-          action={
-            <button
-              onClick={() => { setShowCreate(true); setKycBlocked(false); }}
-              className="btn btn-primary"
-              style={mono}
-            >
-              New agent
-            </button>
-          }
-        />
-
-        {loading ? (
-          <p style={{ ...mono, fontSize: 14, color: 'var(--text-faint)', padding: '40px 0', textAlign: 'center' }}>loading agents…</p>
-        ) : agents.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '52px 20px',
-            background: 'rgba(15,17,12,0.6)', border: '1px dashed var(--border-strong)', borderRadius: 12,
-          }}>
-            <div style={{ fontSize: 44, marginBottom: 14, opacity: 0.18 }}>◉</div>
-            <p style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>No agents yet</p>
-            <p style={{ ...mono, fontSize: 13.5, color: 'var(--text-muted)', marginBottom: 22 }}>
-              Create your first agent — an MCP server or platform bot
-            </p>
-            <button onClick={() => { setShowCreate(true); setKycBlocked(false); }} className="btn btn-primary" style={mono}>
-              New agent
-            </button>
+      {/* Body: agents | live feed */}
+      <div style={{
+        flex: 1, minHeight: 0,
+        display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)',
+      }}>
+        {/* Agents */}
+        <section style={{
+          paddingRight: 36, borderRight: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', flexDirection: 'column', minHeight: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '20px 0 8px' }}>
+            <p style={sectionLabel}>agents</p>
+            <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: '0.06em' }}>
+              {activeAgents.length} of {agents.length}
+            </span>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {agents.map(a => {
-              const p = platformOf(a.platform);
-              const isMcp = a.type === 'mcp';
-              const open = !!keysOpen[a.id];
-              const aKeys = keysFor(a.id);
-              const activeKey = aKeys.find(k => k.status === 'ACTIVE');
-              return (
-                <div
-                  key={a.id}
-                  style={{
-                    background: 'rgba(15,17,12,0.78)',
-                    border: '1px solid var(--border-strong)',
-                    borderRadius: 12,
-                    transition: 'border-color 150ms ease, background 150ms ease',
-                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 0 rgba(0,0,0,0.4)',
-                    backdropFilter: 'blur(6px)',
-                    WebkitBackdropFilter: 'blur(6px)',
-                  }}
-                >
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '40px 1fr auto auto auto auto',
-                    gap: 14, alignItems: 'center', padding: '16px 20px',
-                  }}>
-                    <AgentGlyph type={a.type} />
 
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginRight: -8, paddingRight: 8 }}>
+            {loading ? (
+              <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', padding: '24px 0' }}>loading agents…</p>
+            ) : agents.length === 0 ? (
+              <div style={{ padding: '32px 0' }}>
+                <p style={{ ...grotesk, fontSize: 18, fontWeight: 500, marginBottom: 6, color: 'var(--text-dim)' }}>No agents yet</p>
+                <p style={{ ...mono, fontSize: 12.5, color: 'var(--text-faint)', marginBottom: 16 }}>
+                  Create your first agent — an MCP server or platform bot.
+                </p>
+                <button onClick={() => { setShowCreate(true); setKycBlocked(false); }} className="btn btn-primary" style={mono}>
+                  New agent
+                </button>
+              </div>
+            ) : (
+              agents.map(a => {
+                const isMcp = a.type === 'mcp';
+                const isActive = a.status === 'ACTIVE';
+                const callsForAgent = callsByAgent.get(a.id) ?? 0;
+                return (
+                  <Link
+                    key={a.id}
+                    href={`/agents/${a.id}`}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '40px 1fr auto',
+                      alignItems: 'center', gap: 16,
+                      padding: '18px 4px',
+                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      textDecoration: 'none', color: 'inherit',
+                      transition: 'background 150ms ease',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <AgentGlyph type={a.type} />
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ ...grotesk, fontSize: 17, fontWeight: 500, color: 'var(--text)', letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ ...grotesk, fontSize: 16, fontWeight: 500, letterSpacing: '-0.015em', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {a.name}
                       </div>
-                      <div style={{ ...mono, fontSize: 12.5, color: 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ color: 'var(--text-faint)' }}>{isMcp ? 'mcp' : 'agent'}</span>
-                        {!isMcp && (
-                          <>
-                            <span style={{ opacity: 0.4 }}>·</span>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ opacity: 0.7 }}>{p.icon}</span>{p.label}
-                            </span>
-                          </>
-                        )}
-                        <span style={{ opacity: 0.4 }}>·</span>
-                        <span>created {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <div style={{ ...mono, fontSize: 11.5, color: 'var(--text-faint)', marginTop: 4, letterSpacing: '0.01em' }}>
+                        {isMcp ? 'mcp' : `${a.platform} agent`}
+                        <span style={{ opacity: 0.4, margin: '0 6px' }}>·</span>
+                        {callsForAgent} call{callsForAgent === 1 ? '' : 's'}
                       </div>
                     </div>
-
-                    <StatusPill status={a.status} />
-
-                    <button
-                      type="button"
-                      onClick={() => setKeysOpen(s => ({ ...s, [a.id]: !s[a.id] }))}
-                      className="btn btn-secondary"
-                      style={{ ...mono, fontSize: 12, padding: '8px 14px' }}
-                    >
-                      {open ? 'hide credentials' : 'view credentials'}
-                    </button>
-
-                    <Link
-                      href={`/agents/${a.id}`}
-                      className="btn btn-secondary"
-                      style={{ ...mono, fontSize: 12, padding: '8px 14px', textDecoration: 'none' }}
-                    >
-                      details
-                    </Link>
-
-                    {a.status === 'ACTIVE' && (
-                      <button
-                        type="button"
-                        onClick={() => { setShowDelete(a); setDeleteConfirm(''); }}
-                        className="btn btn-danger"
-                        style={{ ...mono, fontSize: 12, padding: '8px 14px' }}
-                      >
-                        delete
-                      </button>
-                    )}
-                  </div>
-
-                  {open && (
-                    <div style={{
-                      borderTop: '1px solid var(--border-strong)',
-                      padding: '18px 20px',
-                      background: 'rgba(0,0,0,0.45)',
-                      borderRadius: '0 0 11px 11px',
-                      display: 'flex', flexDirection: 'column', gap: 14,
+                    <span style={{
+                      ...mono, fontSize: 11,
+                      color: isActive ? 'var(--accent)' : 'var(--text-faint)',
+                      display: 'inline-flex', alignItems: 'center', gap: 7,
+                      letterSpacing: '0.04em',
                     }}>
-                      <div>
-                        <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                          agent id <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>· header X-Zero-Agent-Id</span>
-                        </p>
-                        <InlineCopy value={a.id} />
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.18)',
+                        boxShadow: isActive ? '0 0 8px rgba(200,245,66,0.5)' : 'none',
+                      }} />
+                      {isActive ? 'ok' : a.status.toLowerCase()}
+                    </span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        {/* Live feed */}
+        <section style={{
+          paddingLeft: 36,
+          display: 'flex', flexDirection: 'column', minHeight: 0,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '20px 0 8px' }}>
+            <p style={sectionLabel}>live</p>
+            <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', display: 'inline-flex', alignItems: 'center', gap: 6, letterSpacing: '0.06em' }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px rgba(200,245,66,0.5)', animation: 'pulse 2s ease-in-out infinite' }} />
+              streaming
+            </span>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginRight: -8, paddingRight: 8 }}>
+            {logs.length === 0 ? (
+              <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', padding: '24px 0' }}>
+                nothing yet — actions will appear as agents run.
+              </p>
+            ) : (
+              logs.slice(0, 60).map((log, i) => {
+                const isBlocked = log.result !== 'SUCCESS';
+                const fade = 1 - Math.min(i / 25, 0.55);
+                return (
+                  <div
+                    key={log.id}
+                    style={{
+                      display: 'grid', gridTemplateColumns: '12px 1fr auto',
+                      alignItems: 'center', gap: 14,
+                      padding: '11px 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.03)',
+                      opacity: fade,
+                    }}
+                  >
+                    <span style={{
+                      width: 5, height: 5, borderRadius: '50%',
+                      background: isBlocked ? '#ff5c5c' : 'var(--accent)',
+                      justifySelf: 'center',
+                      boxShadow: isBlocked ? '0 0 6px rgba(255,92,92,0.45)' : '0 0 6px rgba(200,245,66,0.4)',
+                    }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{
+                        ...mono, fontSize: 12.5, color: 'var(--text)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {log.action}
+                        {isBlocked && <span style={{ color: '#ff8a8a', marginLeft: 8, fontSize: 10.5, letterSpacing: '0.04em' }}>blocked</span>}
                       </div>
-
-                      {a.api_secret ? (
-                        <div>
-                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                            api secret (HMAC) <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--text-muted)' }}>· header X-Zero-Api-Secret</span>
-                          </p>
-                          <InlineCopy value={a.api_secret} mask />
-                        </div>
-                      ) : (
-                        <p style={{ ...mono, fontSize: 12, color: 'var(--text-muted)' }}>
-                          API secret unavailable — encryption key missing on the server.
-                        </p>
-                      )}
-
-                      {isMcp && a.mcp_url && (
-                        <div>
-                          <p style={{ ...mono, fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
-                            mcp endpoint
-                          </p>
-                          <InlineCopy value={a.mcp_url} />
-                        </div>
-                      )}
-
+                      <div style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', marginTop: 2, letterSpacing: '0.02em' }}>
+                        {log.platform}
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    <span style={{ ...mono, fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: '0.02em' }}>
+                      {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-      </section>
+        </section>
+      </div>
 
-      {/* Logs */}
-      <section style={{ marginBottom: 36 }}>
-        <SectionHeader
-          title="Recent activity"
-          hint="Last 50 agent actions across all your agents."
-          action={
-            <Link href="/audit-log" className="btn btn-secondary" style={{ ...mono, textDecoration: 'none' }}>
-              full log
-            </Link>
-          }
-        />
+      <hr style={hairline} />
 
-        {logs.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '40px 20px',
-            background: 'rgba(15,17,12,0.6)', border: '1px dashed var(--border-strong)', borderRadius: 12,
-            ...mono, fontSize: 13.5, color: 'var(--text-dim)',
-          }}>
-            No activity yet — actions will appear here as your agents run.
-          </div>
-        ) : (
-          <div style={{
-            background: 'rgba(15,17,12,0.78)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 12, overflow: 'hidden',
-            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03), 0 1px 0 rgba(0,0,0,0.4)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
-          }}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '150px 140px 110px 130px 1fr',
-              padding: '11px 20px', borderBottom: '1px solid var(--border-strong)',
-              background: 'rgba(0,0,0,0.5)',
-            }}>
-              {['TIME', 'ACTION', 'PLATFORM', 'RESULT', 'INPUT'].map(h => (
-                <span key={h} style={{ ...mono, fontSize: 10, color: 'var(--text-faint)', letterSpacing: '0.1em' }}>{h}</span>
-              ))}
-            </div>
-            <div style={{ maxHeight: 420, overflowY: 'auto' }}>
-              {logs.slice(0, 50).map((log, i, arr) => (
-                <div
-                  key={log.id}
-                  style={{
-                    display: 'grid', gridTemplateColumns: '150px 140px 110px 130px 1fr',
-                    padding: '12px 20px', alignItems: 'center',
-                    borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                  }}
-                >
-                  <span style={{ ...mono, fontSize: 11.5, color: '#fff' }}>
-                    {new Date(log.created_at).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <span style={{ ...mono, fontSize: 12.5, color: 'var(--text)' }}>{log.action}</span>
-                  <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-dim)' }}>{log.platform}</span>
-                  <ResultBadge result={log.result} />
-                  <span style={{ ...mono, fontSize: 11.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {log.user_input ? `"${log.user_input}"` : log.rule_violated ? `rule: ${log.rule_violated}` : '—'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* Footer: user hash + audit log */}
+      <div style={{
+        flexShrink: 0, padding: '14px 0 0',
+        display: 'flex', alignItems: 'center', gap: 18,
+      }}>
+        <span style={sectionLabel}>user hash</span>
+        <span style={{ ...mono, fontSize: 12.5, color: 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '0.02em' }}>
+          {userHash || 'loading…'}
+        </span>
+        {userHash && (
+          <button
+            onClick={() => navigator.clipboard.writeText(userHash)}
+            aria-label="Copy user hash"
+            style={{
+              padding: 8, borderRadius: 999, cursor: 'pointer',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: 'var(--text-faint)',
+              transition: 'all 120ms ease',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-dim)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-faint)')}
+          >
+            <Copy size={13} />
+          </button>
         )}
-      </section>
+        <Link
+          href="/audit-log"
+          style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.06em' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-dim)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
+        >
+          view audit log →
+        </Link>
+      </div>
 
       {/* Wizard */}
       {showCreate && (
