@@ -67,15 +67,10 @@ async function req<T>(path: string, token: string | null, options: RequestInit =
 }
 
 export const authApi = {
-  login: (email: string, password: string) =>
+  loginWithOAuth: (supabase_access_token: string) =>
     req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/login', null, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-  register: (email: string, password: string, full_name?: string, company?: string) =>
-    req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/register', null, {
-      method: 'POST',
-      body: JSON.stringify({ email, password, full_name, company }),
+      body: JSON.stringify({ supabase_access_token }),
     }),
 };
 

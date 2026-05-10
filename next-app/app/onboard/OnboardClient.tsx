@@ -7,6 +7,7 @@ import { MeshGradient } from '@paper-design/shaders-react';
 import { Check, Loader2, ShieldCheck, KeyRound, UserRound, ArrowRight, Copy, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { authApi, kycApi, agentsApi } from '@/lib/api';
+import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 const mono: React.CSSProperties = { fontFamily: 'var(--font-jetbrains), monospace' };
 const grotesk: React.CSSProperties = { fontFamily: 'var(--font-grotesk-var), Space Grotesk, sans-serif' };
@@ -260,24 +261,23 @@ function FluidStepper({ step, onJump }: { step: StepId; onJump: (id: StepId) => 
 /* ────────────────────────── STEP 1: ACCOUNT ────────────────────────── */
 
 function Step1Account({ onDone }: { onDone: (token: string, userId: string, kyc: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED') => void }) {
-  const [fullName, setFullName] = useState('');
-  const [company, setCompany] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function handleGoogleSignUp() {
     setError('');
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
     setLoading(true);
     try {
-      const { token, userId, kycStatus } = await authApi.register(email, password, fullName, company);
-      onDone(token, userId, kycStatus);
+      const supabase = getSupabaseBrowser();
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/google-callback`,
+        },
+      });
+      if (oauthError) throw oauthError;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Registration failed';
-      setError(msg === 'email_taken' ? 'This email is already registered' : msg);
+      setError(err instanceof Error ? err.message : 'Sign up failed');
       setLoading(false);
     }
   }
@@ -285,28 +285,33 @@ function Step1Account({ onDone }: { onDone: (token: string, userId: string, kyc:
   return (
     <Card>
       <CardHeader title="Create your account" sub="Takes about 30 seconds. No credit card." />
-      <form onSubmit={submit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Field label="Full name">
-            <input className="z-input" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Jane Doe" required autoFocus />
-          </Field>
-          <Field label="Company" optional>
-            <input className="z-input" value={company} onChange={e => setCompany(e.target.value)} placeholder="Acme" />
-          </Field>
-        </div>
-        <Field label="Email">
-          <input className="z-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
-        </Field>
-        <Field label="Password">
-          <input className="z-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" required />
-        </Field>
-
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <ErrorRow message={error} />}
 
-        <PrimaryButton loading={loading} loadingText="Creating account…">
-          Continue <ArrowRight size={14} strokeWidth={2.5} />
-        </PrimaryButton>
-      </form>
+        <button
+          onClick={handleGoogleSignUp}
+          disabled={loading}
+          className="btn btn-primary"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          {loading ? 'Signing up…' : ''}
+          {!loading && (
+            <>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="currentColor"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="currentColor"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="currentColor"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="currentColor"/>
+              </svg>
+              Sign up with Google →
+            </>
+          )}
+        </button>
+
+        <p style={{ ...mono, fontSize: 11, color: 'rgba(245,245,245,0.5)', textAlign: 'center', margin: '8px 0 0 0' }}>
+          Already have an account? <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign in</Link>
+        </p>
+      </div>
     </Card>
   );
 }
