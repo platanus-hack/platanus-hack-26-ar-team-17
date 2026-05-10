@@ -129,3 +129,88 @@ describe('POST /api/validate', () => {
     expect(writeLog).toHaveBeenCalledWith(expect.objectContaining({ result: 'BLOCKED_INVALID_KEY' }));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Legacy API key path (old SDK v1: ZERO_API_KEY + ZERO_USER_HASH)
+// ---------------------------------------------------------------------------
+
+const LEGACY_BODY = {
+  token: 'ak_legacy_test_token',
+  hash: 'sha256-of-user',
+  action: 'send_message',
+  platform: 'mcp',
+};
+
+const ACTIVE_API_KEY_DATA = {
+  id: 'key-id-001',
+  agent_id: AGENT_ID,
+  status: 'ACTIVE',
+  agents: { user_id: 'user_1', status: 'ACTIVE', users: { hash: 'sha256-of-user' } },
+};
+
+function mockApiKeyLookup(data: unknown) {
+  supabase.from.mockReturnValueOnce({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data, error: data ? null : { message: 'not found' } }),
+      }),
+    }),
+  });
+}
+
+describe('POST /api/validate (legacy API key path)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns allowed: true when API key, agent, and user hash are valid', async () => {
+    mockApiKeyLookup(ACTIVE_API_KEY_DATA);
+    const res = await POST(makeRequest(LEGACY_BODY));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.allowed).toBe(true);
+  });
+
+  it('returns allowed: false when key is not found', async () => {
+    mockApiKeyLookup(null);
+    expect((await (await POST(makeRequest(LEGACY_BODY))).json()).allowed).toBe(false);
+  });
+
+  it('returns allowed: false when key status is REVOKED', async () => {
+    mockApiKeyLookup({ ...ACTIVE_API_KEY_DATA, status: 'REVOKED' });
+    expect((await (await POST(makeRequest(LEGACY_BODY))).json()).allowed).toBe(false);
+  });
+
+  it('returns allowed: false when agent is DISABLED', async () => {
+    mockApiKeyLookup({
+      ...ACTIVE_API_KEY_DATA,
+      agents: { ...ACTIVE_API_KEY_DATA.agents, status: 'DISABLED' },
+    });
+    expect((await (await POST(makeRequest(LEGACY_BODY))).json()).allowed).toBe(false);
+  });
+
+  it('returns allowed: false when user hash does not match', async () => {
+    mockApiKeyLookup({
+      ...ACTIVE_API_KEY_DATA,
+      agents: { ...ACTIVE_API_KEY_DATA.agents, users: { hash: 'wrong-hash' } },
+    });
+    expect((await (await POST(makeRequest(LEGACY_BODY))).json()).allowed).toBe(false);
+  });
+
+  it('returns allowed: false when required fields are missing', async () => {
+    const res = await POST(makeRequest({ token: 'ak_only', action: 'send_message' }));
+    expect((await res.json()).allowed).toBe(false);
+  });
+
+  it('logs SUCCESS when allowed', async () => {
+    mockApiKeyLookup(ACTIVE_API_KEY_DATA);
+    await POST(makeRequest(LEGACY_BODY));
+    await new Promise(resolve => setImmediate(resolve));
+    expect(writeLog).toHaveBeenCalledWith(expect.objectContaining({ result: 'SUCCESS' }));
+  });
+
+  it('logs BLOCKED_INVALID_KEY when denied', async () => {
+    mockApiKeyLookup(null);
+    await POST(makeRequest(LEGACY_BODY));
+    await new Promise(resolve => setImmediate(resolve));
+    expect(writeLog).toHaveBeenCalledWith(expect.objectContaining({ result: 'BLOCKED_INVALID_KEY' }));
+  });
+});

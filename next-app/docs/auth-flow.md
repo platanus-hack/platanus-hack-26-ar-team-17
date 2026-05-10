@@ -64,6 +64,11 @@ The SDK (`sdk/src/pipeline/validateKey.ts`) runs inside the MCP server process, 
 
 ### Server-side validation (`POST /api/validate`)
 
+The endpoint detects the request format by field presence:
+- Body contains `agentId` → HMAC path (SDK v2)
+- Body contains `token` → legacy API key path (SDK v1, still supported)
+
+**HMAC path:**
 ```
 1. Rate limit check — 30 req/60s per IP (Supabase rate_limits table)
 2. Parse + schema validate body (agentId must be a valid UUID)
@@ -82,9 +87,22 @@ The SDK (`sdk/src/pipeline/validateKey.ts`) runs inside the MCP server process, 
    - Mismatch → BLOCKED_INVALID_KEY, return { allowed: false }
 8. Issue JWT: issueToken({ agentId, userId }, '5m') → { token, expiresAt }
 9. writeLog({ ..., result: 'SUCCESS' }) — fire-and-forget (void)
-10. cleanupExpiredNonces() — fire-and-forget (void)
+10. cleanupExpiredNonces() — fire-and-forget, throttled to once per minute
 11. Return { allowed: true, token, expiresAt }
 ```
+
+**Legacy path (SDK v1 — backward compat):**
+```
+1. Rate limit check
+2. Parse { token, hash, action, platform }
+3. hashApiKey(token) → keyHash
+4. SELECT from api_keys JOIN agents JOIN users WHERE key_hash = keyHash
+5. Verify: api_keys.status = 'ACTIVE' AND agents.status = 'ACTIVE' AND users.hash = hash
+6. writeLog({ ..., result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' }) — fire-and-forget
+7. Return { allowed: true/false }
+```
+
+No JWT is issued on the legacy path. See `docs/migration-v2.md` for migration steps.
 
 ---
 
