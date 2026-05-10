@@ -4,13 +4,13 @@
 
 <img src="./project-logo.png" alt="zero. logo" width="180" />
 
-**Track:** Future — Platanus Hack 26, Buenos Aires &nbsp;|&nbsp; **Live:** [platanus-hack-26-ar-team-17.vercel.app](https://platanus-hack-26-ar-team-17.vercel.app/)
+**Track:** Future | Platanus Hack 26, Buenos Aires &nbsp;|&nbsp; **Live:** [platanus-hack-26-ar-team-17.vercel.app](https://platanus-hack-26-ar-team-17.vercel.app/)
 
 ---
 
 ## The Problem
 
-AI agents are acting on real systems — WhatsApp, MCP servers, wallets, CRMs, internal APIs. But the web still treats them as anonymous processes: a loose API key, a bot token, a borrowed `user_id`. When something goes wrong, the trail ends at "the agent did it." That is not enough for a world where agents buy, publish, move sensitive data, and coordinate across services.
+AI agents are acting on real systems: WhatsApp, MCP servers, wallets, CRMs, internal APIs. But the web still treats them as anonymous processes: a loose API key, a bot token, a borrowed `user_id`. When something goes wrong, the trail ends at "the agent did it." That is not enough for a world where agents buy, publish, move sensitive data, and coordinate across services.
 
 ## What zero. does
 
@@ -27,12 +27,21 @@ await performRealAction();
 ```
 
 - **HMAC-SHA256** signatures with nonce + timestamp (replay-proof, secret never transmitted)
-- **Ed25519 challenge-response** — private key never leaves the agent runtime
-- **Optional post-quantum** ML-DSA-65 layer
+- **Ed25519 challenge-response**: the agent's private key never leaves its runtime.
+  The server issues a one-time challenge; the agent signs `challengeId|nonce|agentId` locally
+  and sends only the signature. Each challenge expires in 60 seconds and is single-use,
+  so replay attacks are impossible.
+- **Post-quantum layer (ML-DSA-65)**: Ed25519 is secure against classical computers, but a
+  sufficiently powerful quantum computer could break elliptic-curve signatures via Shor's
+  algorithm. zero. supports an optional second signature using ML-DSA-65 (formerly Dilithium 3),
+  a NIST-standardized lattice-based algorithm resistant to quantum attacks. When
+  `ZERO_PRIVATE_KEY_PQC` is set, both signatures are computed and verified independently -
+  either one failing blocks the request. This makes zero. ready for a post-quantum future
+  without breaking existing integrations.
 - **Scope-based authorization** per agent (allowed actions defined at registration)
-- **Tamper-evident audit log** — SHA-256 checksum chain across all entries
-- **Instant revocation** — disable an agent; all future calls are blocked immediately
-- **Rate limiting** — 30 req/60s per IP, backed by Postgres (no Redis required)
+- **Tamper-evident audit log**: SHA-256 checksum chain across all entries
+- **Instant revocation**: disable an agent; all future calls are blocked immediately
+- **Rate limiting**: 30 req/60s per IP, backed by Postgres (no Redis required)
 
 ---
 
@@ -42,8 +51,8 @@ await performRealAction();
 |---|---|---|
 | **Landing + Onboard** (root) | Marketing page + 7-step KYC identity wizard | Next.js 16, React 19, shadcn/ui, Tailwind v4 |
 | **Platform API** (`next-app/`) | REST API: agents, keys, validation, audit log | Next.js 16, Supabase (PostgreSQL), JWT |
-| **Agent SDK** (`sdk/`) | `@zero-gate/sdk` — embedded in MCP servers | Node.js 18+, TypeScript, native `crypto` |
-| **CLI** (`cli/`) | `@zero-gate/cli` — provision agents from terminal | Node.js, TypeScript |
+| **Agent SDK** (`sdk/`) | `@zero-gate/sdk`, embedded in MCP servers | Node.js 18+, TypeScript, native `crypto` |
+| **CLI** (`cli/`) | `@zero-gate/cli`, provision agents from terminal | Node.js, TypeScript |
 
 ---
 
@@ -104,9 +113,10 @@ Agent env vars:
 
 ```
 ZERO_AGENT_ID=<uuid>          # from dashboard or CLI
-ZERO_API_SECRET=<secret>      # HMAC mode — shown once at creation
+ZERO_API_SECRET=<secret>           # HMAC mode, shown once at creation
 # Ed25519 mode (alternative):
-ZERO_PRIVATE_KEY=<64-char hex>
+ZERO_PRIVATE_KEY=<64-char hex>        # Ed25519 private key seed
+ZERO_PRIVATE_KEY_PQC=<64-char hex>    # ML-DSA-65 key (optional, post-quantum layer)
 ```
 
 ---
@@ -138,18 +148,18 @@ Run `next-app/supabase/schema.sql` in your Supabase SQL editor to create the sch
 
 ## API Reference
 
-### Agent validation — called by the SDK (no user auth)
+### Agent validation (called by the SDK, no user auth)
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/validate` | HMAC mode — verify signature, issue JWT |
-| `POST` | `/api/agent-auth/challenge` | Ed25519 mode — issue one-time challenge |
-| `POST` | `/api/agent-auth/verify` | Ed25519 mode — verify signature, issue JWT |
+| `POST` | `/api/validate` | HMAC mode: verify signature, issue JWT |
+| `POST` | `/api/agent-auth/challenge` | Ed25519 mode: issue one-time challenge |
+| `POST` | `/api/agent-auth/verify` | Ed25519 mode: verify signature, issue JWT |
 
 `POST /api/validate` body: `{ agentId, timestamp, nonce, action, platform, signature }`
 Response: `{ allowed: true, token, expiresAt }` or `{ allowed: false }`
 
-### Dashboard — requires `user_session` JWT
+### Dashboard (requires `user_session` JWT)
 
 | Method | Endpoint | Description |
 |---|---|---|
