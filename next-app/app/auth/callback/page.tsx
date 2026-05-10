@@ -13,19 +13,30 @@ export default function CallbackPage() {
   useEffect(() => {
     async function handleCallback() {
       try {
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (!code) throw new Error('Missing OAuth code');
-
         const supabase = getSupabaseBrowser();
-        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError || !exchangeData.session?.access_token) {
-          throw new Error(exchangeError?.message ?? 'Failed to complete OAuth sign-in');
+
+        // Handle both PKCE flow (?code=) and implicit flow (#access_token=)
+        const code = new URLSearchParams(window.location.search).get('code');
+        let accessToken: string | null = null;
+
+        if (code) {
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError || !data.session?.access_token) {
+            throw new Error(exchangeError?.message ?? 'Failed to exchange code');
+          }
+          accessToken = data.session.access_token;
+        } else {
+          // Implicit flow: Supabase already set the session from the hash
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError || !data.session?.access_token) {
+            throw new Error(sessionError?.message ?? 'No session found');
+          }
+          accessToken = data.session.access_token;
         }
 
-        const result = await authApi.loginWithOAuth(exchangeData.session.access_token);
+        const result = await authApi.loginWithOAuth(accessToken);
 
         if (result.mode === 'direct') {
-          // Approved user — store session and go straight to dashboard.
           localStorage.setItem('zero_auth', JSON.stringify({
             token: result.token,
             userId: result.userId,
