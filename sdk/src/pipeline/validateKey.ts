@@ -1,6 +1,6 @@
 import { post } from '../http/client';
 import { generateNonce, buildPayload, signPayload } from '../crypto/hmac';
-import { getCachedToken, setCachedToken } from '../cache/jwtCache';
+import { getCachedToken, setCachedToken } from '../auth/cache';
 
 interface ValidateParams {
   agentId:        string;
@@ -19,11 +19,9 @@ interface ValidateResponse {
 export async function validate(params: ValidateParams): Promise<{ allowed: boolean; token?: string }> {
   const { agentId, apiSecret, action, platform, platformApiUrl } = params;
 
-  // Return cached JWT if still valid — avoids HMAC round-trip
-  const cached = getCachedToken(agentId);
+  const cached = getCachedToken();
   if (cached) return { allowed: true, token: cached };
 
-  // Full HMAC authentication flow
   const nonce = generateNonce();
   const timestamp = new Date().toISOString();
   const payload = buildPayload(agentId, timestamp, nonce, action, platform);
@@ -39,7 +37,7 @@ export async function validate(params: ValidateParams): Promise<{ allowed: boole
   });
 
   if (res.allowed && res.token && res.expiresAt) {
-    setCachedToken(agentId, res.token, res.expiresAt);
+    setCachedToken(res.token, res.expiresAt);
   }
 
   return { allowed: res.allowed, token: res.token };

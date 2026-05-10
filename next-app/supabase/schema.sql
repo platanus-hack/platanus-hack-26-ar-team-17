@@ -2,7 +2,7 @@
 
 create type key_status as enum ('ACTIVE', 'REVOKED');
 create type agent_status as enum ('ACTIVE', 'DISABLED');
-create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED');
+create type log_result as enum ('SUCCESS', 'BLOCKED_INVALID_KEY', 'BLOCKED_SCOPE', 'BLOCKED_RULE', 'BLOCKED_REVOKED', 'AUTH_CHALLENGE_ISSUED', 'AUTH_SUCCESS', 'AUTH_FAILED');
 create type rule_type as enum ('FORBIDDEN_ACTION', 'FORBIDDEN_KEYWORD', 'FORBIDDEN_PATTERN');
 create type kyc_status as enum ('PENDING', 'IN_REVIEW', 'VERIFIED', 'REJECTED');
 
@@ -34,9 +34,13 @@ create table agents (
   type text not null default 'agent' check (type in ('agent', 'mcp')),
   scope text[] not null default '{}',
   status agent_status not null default 'ACTIVE',
-  -- HMAC secret for SDK authentication (AES-256-GCM encrypted, format: iv_hex:authTag_hex:ciphertext_hex)
+  -- HMAC mode: AES-256-GCM encrypted secret (iv:authTag:ciphertext, all hex)
   secret_enc text,
-  secret_prefix text,             -- first 8 chars of raw secret for display only
+  secret_prefix text,            -- first 8 chars of raw secret for display only
+  -- Ed25519 + ML-DSA-65 mode
+  public_key text unique,
+  public_key_pqc text unique,
+  did text unique,
   created_at timestamptz default now()
 );
 create index on agents(user_id);
@@ -92,6 +96,22 @@ create table rate_limits (
   count integer not null default 0,
   window_start timestamptz not null default now()
 );
+
+
+-- Challenge-response auth: one-time challenges signed by the agent's Ed25519 private key
+create table auth_challenges (
+  id               uuid primary key default gen_random_uuid(),
+  agent_id         uuid not null references agents(id) on delete cascade,
+  nonce            text not null,
+  requested_action text not null,
+  platform         text not null,
+  expires_at       timestamptz not null,
+  used             boolean not null default false,
+  created_at       timestamptz not null default now()
+);
+create index on auth_challenges(agent_id);
+
+-- Pending Didit biometric login attempts. Webhook resolves the decision.
 
 create table didit_login_attempts (
   session_id text primary key,
