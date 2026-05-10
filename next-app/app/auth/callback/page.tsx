@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/lib/api';
 import { getSupabaseBrowser } from '@/lib/client/supabaseBrowser';
 
 export default function CallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
