@@ -7,6 +7,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('15m'),
   DIDIT_API_KEY: z.string().min(1).optional(),
   DIDIT_API_URL: z.string().url().default('https://verification.didit.me'),
+  DIDIT_WORKFLOW_ID: z.string().min(1).optional(),
   DIDIT_KYC_WORKFLOW_ID: z.string().min(1).optional(),
   DIDIT_BIOMETRIC_WORKFLOW_ID: z.string().min(1).optional(),
   DIDIT_WEBHOOK_SECRET: z.string().min(1).optional(),
