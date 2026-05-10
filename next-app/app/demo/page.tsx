@@ -71,19 +71,19 @@ type RunState =
   | { kind: 'finished'; data: RunResponse }
   | { kind: 'error'; message: string };
 
-// Reasoning lines, keyed to phase. Synthesized — the rest is real.
+// Reasoning lines, keyed to phase. Scripted — the network calls below are real.
 const REASONING_LINES: { phase: Phase; line: string; kind: 'thought' | 'action' | 'observe' | 'final' }[] = [
-  { phase: 'thinking', line: 'user: "fetch the premium weather feed for the dashboard tile"', kind: 'thought' },
-  { phase: 'thinking', line: 'this resource is paywalled — i\'ll need an x402 round-trip', kind: 'thought' },
-  { phase: 'thinking', line: 'matched MCP tool: pay_and_fetch on xmcp-x402-sim', kind: 'thought' },
+  { phase: 'thinking', line: 'user: "pay 0.01 USDC and bring me the premium weather feed"', kind: 'thought' },
+  { phase: 'thinking', line: 'merchant accepts USDC on base-sepolia — this is an x402 payment', kind: 'thought' },
+  { phase: 'thinking', line: 'before any settlement, my agent identity must be signed by zero', kind: 'thought' },
   { phase: 'sign', line: 'building HMAC-SHA256 over agentId|ts|nonce|action|platform', kind: 'action' },
   { phase: 'send', line: 'POST /api/validate  {agentId, ts, nonce, action, sig}', kind: 'action' },
-  { phase: 'issue_token', line: 'received scoped JWT — proceeding to MCP', kind: 'observe' },
-  { phase: 'forward', line: 'POST /mcp tools/call pay_and_fetch  bearer eyJ…', kind: 'action' },
-  { phase: 'exec_tool', line: 'mcp: 402 → create_payment_payload → verify → settle → 200', kind: 'observe' },
-  { phase: 'return', line: 'received resource body + settlement receipt', kind: 'observe' },
-  { phase: 'finalize', line: 'composing reply: city, temp, condition, settlement tx', kind: 'thought' },
-  { phase: 'done', line: 'reply ready — see info panel', kind: 'final' },
+  { phase: 'issue_token', line: 'zero issued a 60s scoped JWT — payment is authorized', kind: 'observe' },
+  { phase: 'forward', line: 'POST /mcp pay_and_fetch  payer 0xPayer…0001, asset USDC', kind: 'action' },
+  { phase: 'exec_tool', line: 'mcp: 402 challenge → sign authorization → verify → settle → 200', kind: 'observe' },
+  { phase: 'return', line: 'settled on base-sepolia · received resource + tx receipt', kind: 'observe' },
+  { phase: 'finalize', line: 'composing reply: amount paid, settlement tx, delivered data', kind: 'thought' },
+  { phase: 'done', line: 'payment cleared — see info panel for the receipt', kind: 'final' },
 ];
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -220,13 +220,13 @@ export default function DemoPage() {
         {/* Hero band */}
         <div style={{ padding: '64px 48px 24px', maxWidth: 1280, margin: '0 auto', width: '100%' }}>
           <div style={{ ...mono, fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#c8f542', marginBottom: 16 }}>
-            live demo · agent ↔ zero ↔ x402-mcp
+            live demo · agent payment via zero ↔ x402
           </div>
           <h1 style={{ ...grotesk, fontSize: 'clamp(44px, 6vw, 72px)', fontWeight: 600, letterSpacing: '-0.04em', lineHeight: 1.02, color: '#f5f5f5', margin: 0, maxWidth: 980 }}>
-            every tool call, <span style={{ color: '#c8f542' }}>signed</span> before it lands.
+            every <span style={{ color: '#c8f542' }}>error 402</span>, signed before it settles.
           </h1>
           <p style={{ ...grotesk, marginTop: 18, fontSize: 17, color: 'rgba(245,245,245,0.72)', maxWidth: 760, lineHeight: 1.5 }}>
-            click run — we mint a fresh agent, sign a real HMAC, hit the live <code style={{ ...mono, color: '#c8f542' }}>/api/validate</code> endpoint, and call the public x402 simulator MCP. the response shown below is the actual JSON the MCP returned.
+            click run — we hit a paywalled resource, take the <code style={{ ...mono, color: '#c8f542' }}>402 Payment Required</code>, prove agent identity through zero, and settle in USDC on base-sepolia. the panel below shows the real x402 receipt the MCP returned.
           </p>
 
           {/* Run control */}
