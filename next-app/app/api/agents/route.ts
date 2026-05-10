@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getInternalUserId } from '@/lib/auth';
 import { createAgent, listAgentsWithMcpUrl, type AgentType, getMcpUrl } from '@/lib/services/agent.service';
 import { config } from '@/lib/config';
+import { supabase } from '@/lib/db/supabase';
 
 const createBody = z.object({
   name: z.string().min(1).max(100),
@@ -21,6 +22,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const me = await getInternalUserId(req);
   if (!me) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('kyc_status')
+    .eq('id', me.internalId)
+    .single<{ kyc_status: string }>();
+
+  if (!user || user.kyc_status !== 'VERIFIED') {
+    return NextResponse.json({ error: 'kyc_required' }, { status: 403 });
+  }
 
   let rawBody: unknown;
   try {

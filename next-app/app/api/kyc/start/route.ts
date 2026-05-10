@@ -2,16 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { supabase } from '@/lib/db/supabase';
 import { createVerificationSession } from '@/lib/services/didit.service';
+import { config } from '@/lib/config';
 
 const CALLBACK_PATH = '/';
-
-function siteUrl(req: NextRequest): string {
-  const explicit = process.env.SITE_URL;
-  if (explicit) return explicit.replace(/\/$/, '');
-  const proto = req.headers.get('x-forwarded-proto') ?? 'https';
-  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost:3000';
-  return `${proto}://${host}`;
-}
 
 export async function POST(req: NextRequest) {
   const userId = await getAuthUserId(req);
@@ -37,10 +30,10 @@ export async function POST(req: NextRequest) {
   try {
     session = await createVerificationSession({
       userId,
-      callbackUrl: `${siteUrl(req)}${CALLBACK_PATH}`,
+      callbackUrl: `${config.SITE_URL.replace(/\/$/, '')}${CALLBACK_PATH}`,
     });
-  } catch (err) {
-    return NextResponse.json({ error: 'didit_session_failed', detail: (err as Error).message }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: 'didit_session_failed' }, { status: 502 });
   }
 
   await supabase

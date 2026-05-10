@@ -8,7 +8,7 @@ const revokeBody = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const userId = getAuthUserId(req);
+  const userId = await getAuthUserId(req);
   if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   let rawBody: unknown;

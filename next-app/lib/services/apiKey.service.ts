@@ -43,7 +43,7 @@ export async function createApiKey(params: {
 
   const { data, error } = await supabase
     .from('api_keys')
-    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, plain_key: plainKey, prefix, scope })
+    .insert({ agent_id: params.agentId, name: params.name, key_hash: keyHash, prefix, scope })
     .select()
     .single();
 
