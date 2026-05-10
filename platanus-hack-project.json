@@ -1,5 +1,6 @@
 {
-  "project-name": "<FILL THIS>",
-  "project-oneliner-spanish": "<FILL THIS>",
-  "project-description-spanish": "<FILL THIS>"
+  "project-name": "zero.",
+  "project-description-spanish": "zero. es la capa de identidad para la internet agéntica. En zero. los humanos pueden registrar a sus agentes como su propiedad, para que los actos cometidos por los agentes sean atribuidos a sus dueños humanos.",
+  "project-oneliner-spanish": "la capa de identidad para la internet agéntica",
+  "deploy-url": "https://platanus-hack-26-ar-team-17.vercel.app/"
 }
