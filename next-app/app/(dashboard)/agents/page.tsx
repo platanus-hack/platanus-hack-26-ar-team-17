@@ -285,7 +285,7 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
 
 /* ─── Create agent wizard (kept from prior version) ─── */
 
-type WizardStep = 'name' | 'type' | 'platform' | 'ready';
+type WizardStep = 'name' | 'platform' | 'ready';
 
 function SystemBubble({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   return (
@@ -328,7 +328,6 @@ function CreateAgentWizard({
 }) {
   const [step, setStep] = useState<WizardStep>('name');
   const [name, setName] = useState('');
-  const [type, setTypeVal] = useState<AgentType | null>(null);
   const [platform, setPlatform] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -342,24 +341,18 @@ function CreateAgentWizard({
   function commitName(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    setStep('type');
-  }
-  function pickType(t: AgentType) {
-    setTypeVal(t);
-    if (t === 'mcp') { setPlatform('mcp'); setStep('ready'); }
-    else { setPlatform(null); setStep('platform'); }
+    setStep('platform');
   }
   function pickPlatform(p: string) { setPlatform(p); setStep('ready'); }
 
   async function submit() {
-    if (!name || !type || !platform) return;
+    if (!name || !platform) return;
     setCreating(true); setError('');
-    try { await onSubmit({ name: name.trim(), type, platform }); }
+    try { await onSubmit({ name: name.trim(), type: 'agent', platform }); }
     catch (err) { setError((err as Error).message ?? 'Something went wrong'); setCreating(false); }
   }
 
-  const typeMeta = type ? TYPES.find(t => t.value === type)! : null;
-  const platformMeta = platform && type === 'agent'
+  const platformMeta = platform
     ? (PLATFORMS.find(p => p.value === platform) ?? null)
     : null;
 
@@ -386,40 +379,14 @@ function CreateAgentWizard({
           {step === 'name' ? (
             <form onSubmit={commitName} className="fade-in" style={{ display: 'flex', gap: 8, alignItems: 'stretch', paddingLeft: 36 }}>
               <input className="z-input" value={name} onChange={e => setName(e.target.value)}
-                placeholder="Sales Bot, Filesystem MCP…" autoFocus style={{ flex: 1 }} />
+                placeholder="Sales Bot, Support Agent…" autoFocus style={{ flex: 1 }} />
               <button type="submit" disabled={!name.trim()} className="btn btn-primary" style={mono}>Continue</button>
             </form>
           ) : (
-            <UserBubble onEdit={() => { setStep('name'); setTypeVal(null); setPlatform(null); }}>{name}</UserBubble>
+            <UserBubble onEdit={() => { setStep('name'); setPlatform(null); }}>{name}</UserBubble>
           )}
 
-          {step !== 'name' && (
-            <>
-              <SystemBubble>Is it an agent or an MCP server?</SystemBubble>
-              {step === 'type' ? (
-                <div className="fade-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, paddingLeft: 36 }}>
-                  {TYPES.map(t => (
-                    <button key={t.value} type="button" onClick={() => pickType(t.value)} style={{
-                      textAlign: 'left', padding: '14px 14px', borderRadius: 9, cursor: 'pointer',
-                      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                      display: 'flex', flexDirection: 'column', gap: 6,
-                    }}>
-                      <span style={{ ...mono, fontSize: 15, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ opacity: 0.85 }}>{t.icon}</span>{t.label}
-                      </span>
-                      <span style={{ ...mono, fontSize: 13, color: 'var(--text-faint)' }}>{t.hint}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : typeMeta ? (
-                <UserBubble onEdit={() => { setStep('type'); setPlatform(null); }}>
-                  <span>{typeMeta.icon}</span> {typeMeta.label}
-                </UserBubble>
-              ) : null}
-            </>
-          )}
-
-          {type === 'agent' && (step === 'platform' || step === 'ready') && (
+          {(step === 'platform' || step === 'ready') && (
             <>
               <SystemBubble>Where will it live?</SystemBubble>
               {step === 'platform' ? (
