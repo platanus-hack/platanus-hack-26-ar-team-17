@@ -1,8 +1,10 @@
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { supabase } from '../db/supabase';
 import { buildChallengePayload, verifyEd25519Signature } from '../utils/ed25519';
 import { issueAgentSessionToken } from './token.service';
 import { writeLog } from './auditLog.service';
+import { config } from '../config';
 
 export interface ChallengeResponse {
   challengeId: string;
@@ -14,6 +16,7 @@ export interface ChallengeResponse {
 export interface VerifyResponse {
   accessToken: string;
   expiresAt: string;
+  receipt: string;
 }
 
 export async function createChallenge(
@@ -73,7 +76,7 @@ export async function verifyChallenge(
 ): Promise<VerifyResponse> {
   const { data: challenge, error: challengeErr } = await supabase
     .from('auth_challenges')
-    .select('id, agent_id, nonce, expires_at, used')
+    .select('id, agent_id, nonce, expires_at, used, platform')
     .eq('id', challengeId)
     .eq('agent_id', agentId)
     .single();
@@ -111,16 +114,30 @@ export async function verifyChallenge(
   const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
   const accessToken = issueAgentSessionToken(agentId, agent.did ?? '', agent.scope ?? []);
 
+  const receipt = jwt.sign(
+    {
+      type: 'auth_receipt',
+      receiptId: crypto.randomUUID(),
+      agentId,
+      action: 'agent_auth',
+      platform: challenge.platform ?? 'unknown',
+      result: 'AUTH_SUCCESS',
+      timestamp: new Date().toISOString(),
+    },
+    config.JWT_SECRET,
+    { expiresIn: '1h' },
+  );
+
   await writeLog({
     agentId,
     apiKeyId: null,
     userId: null,
     action: 'agent_auth',
-    platform: 'unknown',
+    platform: challenge.platform ?? 'unknown',
     result: 'AUTH_SUCCESS',
   }).catch(() => {});
 
-  return { accessToken, expiresAt };
+  return { accessToken, expiresAt, receipt };
 }
 
 export class ChallengeError extends Error {

@@ -12,6 +12,12 @@ interface ChallengeResponse {
 interface VerifyResponse {
   accessToken: string;
   expiresAt: string;
+  receipt?: string;
+}
+
+export interface ChallengeFlowResult {
+  token: string;
+  receipt?: string;
 }
 
 export async function performChallengeFlow(
@@ -20,7 +26,7 @@ export async function performChallengeFlow(
   requestedAction: string,
   platform: string,
   platformApiUrl: string,
-): Promise<string> {
+): Promise<ChallengeFlowResult> {
   const challenge = await post<ChallengeResponse>(
     `${platformApiUrl}/api/agent-auth/challenge`,
     { agentId, requestedAction, platform },
@@ -29,11 +35,11 @@ export async function performChallengeFlow(
   const payload = buildChallengePayload(challenge.challengeId, challenge.nonce, agentId);
   const signature = signChallenge(privateKeyHex, payload);
 
-  const { accessToken, expiresAt } = await post<VerifyResponse>(
+  const { accessToken, expiresAt, receipt } = await post<VerifyResponse>(
     `${platformApiUrl}/api/agent-auth/verify`,
     { agentId, challengeId: challenge.challengeId, signature },
   );
 
   setCachedToken(accessToken, expiresAt);
-  return accessToken;
+  return { token: accessToken, receipt };
 }

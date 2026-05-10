@@ -5,6 +5,7 @@ export interface SDKConfig {
 export interface RunResult {
     allowed: boolean;
     token?: string;
+    receipt?: string;
 }
 export declare class ZeroGateSDK {
     private agentId;

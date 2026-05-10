@@ -15,6 +15,7 @@ export interface SDKConfig {
 export interface RunResult {
   allowed: boolean;
   token?: string;
+  receipt?: string;
 }
 
 function fromEnv(name: string): string | undefined {
@@ -53,14 +54,15 @@ export class ZeroGateSDK {
   async run(): Promise<RunResult> {
     if (this.mode === 'ed25519') {
       const cached = getCachedToken();
-      const token = cached ?? await performChallengeFlow(
+      if (cached) return { allowed: true, token: cached };
+      const { token, receipt } = await performChallengeFlow(
         this.agentId,
         this.privateKey,
         detectAction(),
         this.platform,
         this.platformApiUrl,
       );
-      return { allowed: true, token };
+      return { allowed: true, token, receipt };
     }
 
     // HMAC mode

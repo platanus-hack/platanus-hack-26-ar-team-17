@@ -35,7 +35,7 @@ describe('performChallengeFlow', () => {
       .mockResolvedValueOnce({ challengeId, nonce: challengeNonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
       .mockResolvedValueOnce({ accessToken: 'jwt-token', expiresAt: new Date(Date.now() + 300000).toISOString() });
 
-    const token = await performChallengeFlow(agentId, privHex, 'send_message', 'mcp', 'https://api.example.com');
+    const result = await performChallengeFlow(agentId, privHex, 'send_message', 'mcp', 'https://api.example.com');
 
     expect(postSpy).toHaveBeenCalledTimes(2);
     expect(postSpy).toHaveBeenNthCalledWith(
@@ -48,7 +48,7 @@ describe('performChallengeFlow', () => {
       'https://api.example.com/api/agent-auth/verify',
       expect.objectContaining({ agentId, challengeId }),
     );
-    expect(token).toBe('jwt-token');
+    expect(result.token).toBe('jwt-token');
   });
 
   it('caches the token after a successful flow', async () => {
