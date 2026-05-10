@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createAgent } from '@/lib/services/agent.service';
 import { resolveInternalUserIdByHash } from '@/lib/services/profile.service';
-import { buildHmacPayload } from '@/lib/utils/crypto';
+import { buildHmacPayload, decryptSecret, verifyHmacSignature } from '@/lib/utils/crypto';
+import { consumeNonce } from '@/lib/services/nonce.service';
+import { issueToken } from '@/lib/services/token.service';
+import { writeLog } from '@/lib/services/auditLog.service';
+import { supabase } from '@/lib/db/supabase';
+import { config } from '@/lib/config';
+
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 // Default points at the pre-seeded test account (pitchr-test@example.com).
 // Override via DEMO_USER_HASH env var if you want every run booked under a different user.
@@ -55,11 +62,23 @@ export async function POST(req: NextRequest) {
   };
 
   // ── 0. Resolve the demo user (no login required — uses a fixed test account)
-  const demoHash = process.env.DEMO_USER_HASH ?? DEFAULT_DEMO_USER_HASH;
+  // Sanitize: tolerate someone pasting "DEMO_USER_HASH=<value>" into the env var
+  // by stripping a leading "DEMO_USER_HASH=" / "KEY=" prefix and surrounding quotes.
+  const rawHash = (process.env.DEMO_USER_HASH ?? '').trim();
+  const stripped = rawHash
+    .replace(/^DEMO_USER_HASH\s*=\s*/i, '')
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  const looksLikeHash = /^[a-f0-9]{32,128}$/i.test(stripped);
+  const demoHash = looksLikeHash ? stripped : DEFAULT_DEMO_USER_HASH;
+
   const demoUserId = await resolveInternalUserIdByHash(demoHash);
   if (!demoUserId) {
     return NextResponse.json(
-      { error: 'demo_user_missing', message: `no users row matches DEMO_USER_HASH=${demoHash}` },
+      {
+        error: 'demo_user_missing',
+        message: `no users row matches demo hash ${demoHash.slice(0, 8)}…`,
+      },
       { status: 500 },
     );
   }
@@ -108,33 +127,58 @@ export async function POST(req: NextRequest) {
     signaturePreview: preview(signature, 16, 8),
   });
 
-  // ── 3. Real call to /api/validate (same origin as this route) ─────────────
-  const origin = req.nextUrl.origin;
-  const validateUrl = `${origin}/api/validate`;
+  // ── 3. Run the same validation logic /api/validate runs — but in-process ──
+  //    (Vercel deployment protection intercepts internal HTTP self-calls and
+  //    returns an HTML auth page, breaking the previous fetch-based approach.)
   let token: string | null = null;
   let expiresAt: string | null = null;
   try {
-    const res = await fetch(validateUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ agentId, timestamp, nonce, action, platform, signature }),
-    });
-    const body = (await res.json()) as { allowed: boolean; token?: string; expiresAt?: string };
-    if (!body.allowed) {
-      log('validated', { status: res.status, allowed: false }, false);
+    const ts = Date.parse(timestamp);
+    if (isNaN(ts) || Math.abs(Date.now() - ts) > CLOCK_SKEW_MS) {
+      log('validated', { allowed: false, reason: 'timestamp_skew' }, false);
       return NextResponse.json({ trace, error: 'validation_denied' }, { status: 200 });
     }
-    token = body.token ?? null;
-    expiresAt = body.expiresAt ?? null;
+
+    const { data: agentRow } = await supabase
+      .from('agents')
+      .select('id, user_id, status, secret_enc')
+      .eq('id', agentId)
+      .eq('status', 'ACTIVE')
+      .single<{ id: string; user_id: string; status: string; secret_enc: string | null }>();
+
+    if (!agentRow || !agentRow.secret_enc || !config.ENCRYPTION_KEY) {
+      log('validated', { allowed: false, reason: 'agent_not_found_or_no_key' }, false);
+      return NextResponse.json({ trace, error: 'validation_denied' }, { status: 200 });
+    }
+
+    const nonceExpiresAt = new Date(ts + CLOCK_SKEW_MS);
+    const nonceOk = await consumeNonce(nonce, agentId, nonceExpiresAt);
+    if (!nonceOk) {
+      log('validated', { allowed: false, reason: 'nonce_replay' }, false);
+      return NextResponse.json({ trace, error: 'validation_denied' }, { status: 200 });
+    }
+
+    const secret = decryptSecret(agentRow.secret_enc, config.ENCRYPTION_KEY);
+    if (!verifyHmacSignature(secret, payload, signature)) {
+      log('validated', { allowed: false, reason: 'hmac_mismatch' }, false);
+      void writeLog({ agentId, userId: agentRow.user_id, action, platform, result: 'BLOCKED_INVALID_KEY' });
+      return NextResponse.json({ trace, error: 'validation_denied' }, { status: 200 });
+    }
+
+    const issued = await issueToken({ agentId, userId: agentRow.user_id });
+    token = issued.token;
+    expiresAt = issued.expiresAt;
+    void writeLog({ agentId, userId: agentRow.user_id, action, platform, result: 'SUCCESS' });
+
     log('validated', {
-      status: res.status,
+      status: 200,
       allowed: true,
-      tokenPreview: token ? preview(token, 12, 6) : null,
+      tokenPreview: preview(token, 12, 6),
       expiresAt,
     });
   } catch (err) {
     log('validated', { error: (err as Error).message }, false);
-    return NextResponse.json({ trace, error: 'validate_call_failed' }, { status: 500 });
+    return NextResponse.json({ trace, error: 'validate_failed' }, { status: 500 });
   }
 
   // ── 4. Initialize MCP session (Streamable HTTP, stateless) ─────────────────
