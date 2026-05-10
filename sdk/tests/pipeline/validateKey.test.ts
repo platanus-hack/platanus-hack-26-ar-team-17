@@ -46,7 +46,7 @@ describe('validate', () => {
     expect(sentBody.agentId).toBe(BASE.agentId);
     expect(sentBody.action).toBe(BASE.action);
     expect(sentBody.platform).toBe(BASE.platform);
-    expect(sentBody.nonce).toMatch(/^[0-9a-f]{32}$/);
+    expect(sentBody.nonce).toMatch(/^[0-9a-f]{64}$/);
     expect(sentBody.timestamp).toBeDefined();
     expect(sentBody.signature).toMatch(/^[0-9a-f]{64}$/);
   });
