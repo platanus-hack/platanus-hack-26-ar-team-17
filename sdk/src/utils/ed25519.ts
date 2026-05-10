@@ -1,4 +1,5 @@
 import { sign } from 'crypto';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
 /**
  * Builds the deterministic challenge payload - must match the backend implementation exactly.
@@ -13,6 +14,18 @@ export function buildChallengePayload(challengeId: string, nonce: string, agentI
  * Ed25519 PKCS#8 DER prefix: 302e020100300506032b657004220420
  * Uses crypto.sign(null, ...) — Ed25519 does its own internal hashing; no digest needed.
  */
+export function deriveMLDSAPublicKey(seedHex: string): string {
+  const { publicKey } = ml_dsa65.keygen(Buffer.from(seedHex, 'hex'));
+  return Buffer.from(publicKey).toString('hex');
+}
+
+export function signChallengeMLDSA(seedHex: string, message: string): string {
+  const { secretKey } = ml_dsa65.keygen(Buffer.from(seedHex, 'hex'));
+  // @noble/post-quantum sign(msg, secretKey) — message first, key second
+  const sig = ml_dsa65.sign(Buffer.from(message, 'utf8'), secretKey);
+  return Buffer.from(sig).toString('hex');
+}
+
 export function signChallenge(privateKeyHex: string, message: string): string {
   const prefix = Buffer.from('302e020100300506032b657004220420', 'hex');
   const rawKey = Buffer.from(privateKeyHex, 'hex');

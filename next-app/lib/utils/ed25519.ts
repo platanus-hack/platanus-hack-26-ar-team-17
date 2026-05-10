@@ -1,4 +1,5 @@
 import { verify } from 'crypto';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
 /**
  * Builds the deterministic payload that the agent must sign.
@@ -13,6 +14,23 @@ export function buildChallengePayload(challengeId: string, nonce: string, agentI
  * Node.js crypto requires the public key wrapped in a SubjectPublicKeyInfo DER envelope.
  * Ed25519 SPKI DER prefix: OID 1.3.101.112 → 302a300506032b6570032100
  */
+export function verifyMLDSASignature(
+  publicKeyHex: string,
+  message: string,
+  signatureHex: string,
+): boolean {
+  try {
+    const pub = Buffer.from(publicKeyHex, 'hex');
+    if (pub.length !== 1952) return false;
+    const sig = Buffer.from(signatureHex, 'hex');
+    if (sig.length !== 3309) return false;
+    // @noble/post-quantum verify(sig, msg, publicKey) — signature first
+    return ml_dsa65.verify(sig, Buffer.from(message, 'utf8'), pub);
+  } catch {
+    return false;
+  }
+}
+
 export function verifyEd25519Signature(
   publicKeyHex: string,
   message: string,

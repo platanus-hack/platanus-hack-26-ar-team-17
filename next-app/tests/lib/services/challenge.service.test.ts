@@ -1,4 +1,5 @@
 import { generateKeyPairSync, sign as cryptoSign } from 'crypto';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 import { createChallenge, verifyChallenge } from '@/lib/services/challenge.service';
 import { buildChallengePayload } from '@/lib/utils/ed25519';
 
@@ -126,5 +127,74 @@ describe('verifyChallenge', () => {
     );
     await expect(verifyChallenge('agent-1', 'chal-2', 'a'.repeat(128)))
       .rejects.toMatchObject({ code: 'invalid_signature', status: 401 });
+  });
+
+  describe('hybrid PQC verification', () => {
+    const PQC_SEED = 'a'.repeat(64);
+    const { secretKey: pqcSecretKey, publicKey: pqcPublicKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const pqcPubHex = Buffer.from(pqcPublicKey).toString('hex');
+
+    function makeValidHybridSig(nonce: string, challengeId: string, agentId: string) {
+      const payload = buildChallengePayload(challengeId, nonce, agentId);
+      const ed25519Sig = cryptoSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('hex');
+      const pqcSig = Buffer.from(ml_dsa65.sign(Buffer.from(payload, 'utf8'), pqcSecretKey)).toString('hex');
+      return { ed25519Sig, pqcSig };
+    }
+
+    it('passes when both signatures are valid', async () => {
+      const nonce = 'hybrid-nonce';
+      const { ed25519Sig, pqcSig } = makeValidHybridSig(nonce, 'chal-h', 'agent-1');
+
+      setupVerifyMocks(
+        { data: { id: 'chal-h', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null },
+        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null },
+      );
+
+      const result = await verifyChallenge('agent-1', 'chal-h', ed25519Sig, pqcSig);
+      expect(result.accessToken).toBeDefined();
+    });
+
+    it('throws pqc_signature_required when PQC key registered but no PQC sig provided', async () => {
+      const nonce = 'hybrid-nonce-2';
+      const payload = buildChallengePayload('chal-p', nonce, 'agent-1');
+      const ed25519Sig = cryptoSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('hex');
+
+      supabase.from
+        .mockReturnValueOnce(makeSelectSingle({ data: { id: 'chal-p', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null }))
+        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null }))
+        .mockReturnValueOnce(makeUpdate());
+
+      await expect(verifyChallenge('agent-1', 'chal-p', ed25519Sig))
+        .rejects.toMatchObject({ code: 'pqc_signature_required', status: 400 });
+    });
+
+    it('throws invalid_pqc_signature when PQC signature is wrong', async () => {
+      const nonce = 'hybrid-nonce-3';
+      const payload = buildChallengePayload('chal-q', nonce, 'agent-1');
+      const ed25519Sig = cryptoSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('hex');
+      const badPqcSig = 'b'.repeat(6618);
+
+      supabase.from
+        .mockReturnValueOnce(makeSelectSingle({ data: { id: 'chal-q', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null }))
+        .mockReturnValueOnce(makeSelectSingleOneEq({ data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: pqcPubHex, did: 'did:zero:test', scope: [] }, error: null }))
+        .mockReturnValueOnce(makeUpdate());
+
+      await expect(verifyChallenge('agent-1', 'chal-q', ed25519Sig, badPqcSig))
+        .rejects.toMatchObject({ code: 'invalid_pqc_signature', status: 401 });
+    });
+
+    it('passes Ed25519-only verification for agents without a PQC key (backward compat)', async () => {
+      const nonce = 'ed-only-nonce';
+      const payload = buildChallengePayload('chal-e', nonce, 'agent-1');
+      const sig = cryptoSign(null, Buffer.from(payload, 'utf8'), privateKey).toString('hex');
+
+      setupVerifyMocks(
+        { data: { id: 'chal-e', agent_id: 'agent-1', nonce, expires_at: new Date(Date.now() + 60000).toISOString(), used: false, platform: 'mcp' }, error: null },
+        { data: { id: 'agent-1', status: 'ACTIVE', public_key: pubHex, public_key_pqc: null, did: 'did:zero:test', scope: [] }, error: null },
+      );
+
+      const result = await verifyChallenge('agent-1', 'chal-e', sig);
+      expect(result.accessToken).toBeDefined();
+    });
   });
 });

@@ -39,6 +39,7 @@ create table agents (
   secret_prefix text,            -- first 8 chars of raw secret for display only
   -- Ed25519 + ML-DSA-65 mode
   public_key text unique,
+  public_key_pqc text unique,
   did text unique,
   created_at timestamptz default now()
 );

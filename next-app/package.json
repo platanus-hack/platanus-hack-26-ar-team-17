@@ -10,6 +10,7 @@
     "cli:create-agent": "node cli/create-agent.mjs"
   },
   "dependencies": {
+    "@noble/post-quantum": "^0.6.1",
     "@paper-design/shaders-react": "^0.0.76",
     "@supabase/supabase-js": "^2.105.4",
     "bcryptjs": "^2.4.3",

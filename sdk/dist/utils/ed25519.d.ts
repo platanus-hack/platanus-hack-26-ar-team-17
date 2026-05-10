@@ -8,5 +8,7 @@ export declare function buildChallengePayload(challengeId: string, nonce: string
  * Ed25519 PKCS#8 DER prefix: 302e020100300506032b657004220420
  * Uses crypto.sign(null, ...) — Ed25519 does its own internal hashing; no digest needed.
  */
+export declare function deriveMLDSAPublicKey(seedHex: string): string;
+export declare function signChallengeMLDSA(seedHex: string, message: string): string;
 export declare function signChallenge(privateKeyHex: string, message: string): string;
 //# sourceMappingURL=ed25519.d.ts.map

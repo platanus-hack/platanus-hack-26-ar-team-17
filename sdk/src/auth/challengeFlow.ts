@@ -1,5 +1,5 @@
 import { post } from '../http/client';
-import { buildChallengePayload, signChallenge } from '../utils/ed25519';
+import { buildChallengePayload, signChallenge, signChallengeMLDSA } from '../utils/ed25519';
 import { setCachedToken } from './cache';
 
 interface ChallengeResponse {
@@ -26,6 +26,7 @@ export async function performChallengeFlow(
   requestedAction: string,
   platform: string,
   platformApiUrl: string,
+  privateKeyPqcSeed?: string,
 ): Promise<ChallengeFlowResult> {
   const challenge = await post<ChallengeResponse>(
     `${platformApiUrl}/api/agent-auth/challenge`,
@@ -35,9 +36,18 @@ export async function performChallengeFlow(
   const payload = buildChallengePayload(challenge.challengeId, challenge.nonce, agentId);
   const signature = signChallenge(privateKeyHex, payload);
 
+  const verifyBody: Record<string, string> = {
+    agentId,
+    challengeId: challenge.challengeId,
+    signature,
+  };
+  if (privateKeyPqcSeed) {
+    verifyBody.signaturePqc = signChallengeMLDSA(privateKeyPqcSeed, payload);
+  }
+
   const { accessToken, expiresAt, receipt } = await post<VerifyResponse>(
     `${platformApiUrl}/api/agent-auth/verify`,
-    { agentId, challengeId: challenge.challengeId, signature },
+    verifyBody,
   );
 
   setCachedToken(accessToken, expiresAt);

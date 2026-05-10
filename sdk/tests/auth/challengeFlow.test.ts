@@ -1,8 +1,9 @@
 import { generateKeyPairSync, verify as cryptoVerify } from 'crypto';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 import * as client from '../../src/http/client';
 import { clearCache, getCachedToken } from '../../src/auth/cache';
 import { performChallengeFlow } from '../../src/auth/challengeFlow';
-import { buildChallengePayload } from '../../src/utils/ed25519';
+import { buildChallengePayload, deriveMLDSAPublicKey } from '../../src/utils/ed25519';
 
 function makeKeyPair() {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -80,5 +81,45 @@ describe('performChallengeFlow', () => {
     const spkiDer = Buffer.concat([prefix, Buffer.from(pubHex, 'hex')]);
     const ok = cryptoVerify(null, Buffer.from(payload, 'utf8'), { key: spkiDer, format: 'der', type: 'spki' }, Buffer.from(signature, 'hex'));
     expect(ok).toBe(true);
+  });
+
+  it('includes signaturePqc in verify body when privateKeyPqcSeed is provided', async () => {
+    const { privHex } = makeKeyPair();
+    const pqcSeed = 'a'.repeat(64);
+    const challengeId = 'chal-pqc-test';
+    const nonce = 'nonce-pqc-test';
+    const agentId = 'agent-pqc-test';
+
+    postSpy
+      .mockResolvedValueOnce({ challengeId, nonce, timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
+      .mockResolvedValueOnce({ accessToken: 'jwt-pqc', expiresAt: new Date(Date.now() + 300000).toISOString() });
+
+    await performChallengeFlow(agentId, privHex, 'action', 'mcp', 'https://api.example.com', pqcSeed);
+
+    const verifyCall = postSpy.mock.calls[1][1];
+    expect(verifyCall.signaturePqc).toMatch(/^[0-9a-f]{6618}$/);
+
+    // Verify the PQC signature is valid
+    const payload = buildChallengePayload(challengeId, nonce, agentId);
+    const pubHex = deriveMLDSAPublicKey(pqcSeed);
+    const ok = ml_dsa65.verify(
+      Buffer.from(verifyCall.signaturePqc, 'hex'),
+      Buffer.from(payload, 'utf8'),
+      Buffer.from(pubHex, 'hex'),
+    );
+    expect(ok).toBe(true);
+  });
+
+  it('does not include signaturePqc when no PQC seed is provided', async () => {
+    const { privHex } = makeKeyPair();
+
+    postSpy
+      .mockResolvedValueOnce({ challengeId: 'c', nonce: 'n', timestamp: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString() })
+      .mockResolvedValueOnce({ accessToken: 'tok', expiresAt: new Date(Date.now() + 300000).toISOString() });
+
+    await performChallengeFlow('agent-1', privHex, 'action', 'mcp', 'https://api.example.com');
+
+    const verifyCall = postSpy.mock.calls[1][1];
+    expect(verifyCall.signaturePqc).toBeUndefined();
   });
 });

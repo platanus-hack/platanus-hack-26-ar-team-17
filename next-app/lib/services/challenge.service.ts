@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../db/supabase';
-import { buildChallengePayload, verifyEd25519Signature } from '../utils/ed25519';
+import { buildChallengePayload, verifyEd25519Signature, verifyMLDSASignature } from '../utils/ed25519';
 import { issueAgentSessionToken } from './token.service';
 import { writeLog } from './auditLog.service';
 import { config } from '../config';
@@ -73,6 +73,7 @@ export async function verifyChallenge(
   agentId: string,
   challengeId: string,
   signatureHex: string,
+  signaturePqcHex?: string,
 ): Promise<VerifyResponse> {
   const { data: challenge, error: challengeErr } = await supabase
     .from('auth_challenges')
@@ -87,7 +88,7 @@ export async function verifyChallenge(
 
   const { data: agent, error: agentErr } = await supabase
     .from('agents')
-    .select('id, status, public_key, did, scope')
+    .select('id, status, public_key, public_key_pqc, did, scope')
     .eq('id', agentId)
     .single();
 
@@ -95,6 +96,27 @@ export async function verifyChallenge(
   if (agent.status === 'DISABLED') throw new ChallengeError('agent_revoked', 403);
 
   const payload = buildChallengePayload(challengeId, challenge.nonce, agentId);
+
+  if (agent.public_key_pqc) {
+    if (!signaturePqcHex) {
+      await supabase.from('auth_challenges').update({ used: true }).eq('id', challengeId);
+      throw new ChallengeError('pqc_signature_required', 400);
+    }
+    const pqcValid = verifyMLDSASignature(agent.public_key_pqc, payload, signaturePqcHex);
+    if (!pqcValid) {
+      await supabase.from('auth_challenges').update({ used: true }).eq('id', challengeId);
+      await writeLog({
+        agentId,
+        apiKeyId: null,
+        userId: null,
+        action: 'agent_auth',
+        platform: challenge.platform ?? 'unknown',
+        result: 'AUTH_FAILED',
+      }).catch(() => {});
+      throw new ChallengeError('invalid_pqc_signature', 401);
+    }
+  }
+
   const valid = verifyEd25519Signature(agent.public_key, payload, signatureHex);
 
   await supabase.from('auth_challenges').update({ used: true }).eq('id', challengeId);

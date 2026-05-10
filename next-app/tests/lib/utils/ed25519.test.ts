@@ -1,5 +1,6 @@
 import { generateKeyPairSync, sign as cryptoSign, verify as cryptoVerify } from 'crypto';
-import { buildChallengePayload, verifyEd25519Signature } from '@/lib/utils/ed25519';
+import { buildChallengePayload, verifyEd25519Signature, verifyMLDSASignature } from '@/lib/utils/ed25519';
+import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 
 function generateTestKeyPair() {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -70,5 +71,57 @@ describe('verifyEd25519Signature', () => {
 
     // Also verify: a different payload should fail
     expect(verifyEd25519Signature(pubHex, 'different', sig)).toBe(false);
+  });
+});
+
+const PQC_SEED = 'a'.repeat(64); // 32-byte seed, hex-encoded
+
+describe('verifyMLDSASignature', () => {
+  it('verifies a valid ML-DSA-65 signature', () => {
+    const message = 'hello pqc';
+    const { secretKey, publicKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const sig = ml_dsa65.sign(Buffer.from(message, 'utf8'), secretKey);
+    const pubHex = Buffer.from(publicKey).toString('hex');
+    const sigHex = Buffer.from(sig).toString('hex');
+    expect(verifyMLDSASignature(pubHex, message, sigHex)).toBe(true);
+  });
+
+  it('rejects a tampered message', () => {
+    const { secretKey, publicKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const sig = ml_dsa65.sign(Buffer.from('original', 'utf8'), secretKey);
+    const pubHex = Buffer.from(publicKey).toString('hex');
+    const sigHex = Buffer.from(sig).toString('hex');
+    expect(verifyMLDSASignature(pubHex, 'tampered', sigHex)).toBe(false);
+  });
+
+  it('rejects a wrong public key', () => {
+    const { secretKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const { publicKey: otherPub } = ml_dsa65.keygen(Buffer.from('b'.repeat(64), 'hex'));
+    const sig = ml_dsa65.sign(Buffer.from('msg', 'utf8'), secretKey);
+    const sigHex = Buffer.from(sig).toString('hex');
+    const otherPubHex = Buffer.from(otherPub).toString('hex');
+    expect(verifyMLDSASignature(otherPubHex, 'msg', sigHex)).toBe(false);
+  });
+
+  it('rejects a public key of wrong length', () => {
+    const sig = 'a'.repeat(6618);
+    expect(verifyMLDSASignature('a'.repeat(3902), 'msg', sig)).toBe(false);
+  });
+
+  it('rejects a signature of wrong length', () => {
+    const { publicKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const pubHex = Buffer.from(publicKey).toString('hex');
+    expect(verifyMLDSASignature(pubHex, 'msg', 'a'.repeat(6616))).toBe(false);
+  });
+
+  it('cross-implementation round-trip: SDK signChallengeMLDSA -> verifyMLDSASignature', () => {
+    // Simulate what the SDK does: sign with ml_dsa65.sign(msg, secretKey)
+    const { secretKey, publicKey } = ml_dsa65.keygen(Buffer.from(PQC_SEED, 'hex'));
+    const payload = buildChallengePayload('cid', 'nonce', 'agent');
+    const sig = ml_dsa65.sign(Buffer.from(payload, 'utf8'), secretKey);
+    const pubHex = Buffer.from(publicKey).toString('hex');
+    const sigHex = Buffer.from(sig).toString('hex');
+    expect(verifyMLDSASignature(pubHex, payload, sigHex)).toBe(true);
+    expect(verifyMLDSASignature(pubHex, 'different', sigHex)).toBe(false);
   });
 });

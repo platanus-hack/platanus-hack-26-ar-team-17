@@ -6,6 +6,7 @@ const verifyBody = z.object({
   agentId: z.string().uuid(),
   challengeId: z.string().uuid(),
   signature: z.string().regex(/^[0-9a-f]{128}$/i, 'signature must be a 128-char hex string (64-byte Ed25519 signature)'),
+  signaturePqc: z.string().regex(/^[0-9a-f]{6618}$/i, 'signaturePqc must be a 6618-char hex string (3309-byte ML-DSA-65 signature)').optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,6 +27,7 @@ export async function POST(req: NextRequest) {
       parsed.data.agentId,
       parsed.data.challengeId,
       parsed.data.signature,
+      parsed.data.signaturePqc,
     );
     return NextResponse.json(result);
   } catch (err) {

@@ -32,9 +32,9 @@ export class ZeroGateSDK {
   private readonly mode: 'hmac' | 'ed25519';
 
   constructor(config: SDKConfig = {}) {
-    this.agentId       = config.agentId       ?? fromEnv('ZERO_AGENT_ID')    ?? '';
-    this.apiSecret     = config.apiSecret     ?? fromEnv('ZERO_API_SECRET')  ?? '';
-    this.privateKey    = config.privateKey    ?? fromEnv('ZERO_PRIVATE_KEY') ?? '';
+    this.agentId       = config.agentId       ?? fromEnv('ZERO_AGENT_ID')        ?? '';
+    this.apiSecret     = config.apiSecret     ?? fromEnv('ZERO_API_SECRET')      ?? '';
+    this.privateKey    = config.privateKey    ?? fromEnv('ZERO_PRIVATE_KEY')     ?? '';
     this.privateKeyPqc = config.privateKeyPqc ?? fromEnv('ZERO_PRIVATE_KEY_PQC') ?? '';
     this.platformApiUrl = config.platformApiUrl ?? PLATFORM_API_URL;
     this.platform      = detectPlatform();
@@ -61,6 +61,7 @@ export class ZeroGateSDK {
         detectAction(),
         this.platform,
         this.platformApiUrl,
+        this.privateKeyPqc || undefined,
       );
       return { allowed: true, token, receipt };
     }
