@@ -15,12 +15,10 @@ export interface DecodedToken {
 
 export async function issueToken(
   payload: { userId: string; agentId: string },
-  expiresIn: string = '5m',
+  expiresIn: jwt.SignOptions['expiresIn'] = '5m',
 ): Promise<{ token: string; expiresAt: string }> {
   const jti = crypto.randomUUID();
-  const token = jwt.sign({ ...payload, jti, type: 'sdk_token' }, config.JWT_SECRET, {
-    expiresIn: expiresIn as jwt.SignOptions['expiresIn'],
-  });
+  const token = jwt.sign({ ...payload, jti, type: 'sdk_token' }, config.JWT_SECRET, { expiresIn });
   const decoded = jwt.decode(token) as { exp: number };
   const expiresAt = new Date(decoded.exp * 1000).toISOString();
   return { token, expiresAt };
