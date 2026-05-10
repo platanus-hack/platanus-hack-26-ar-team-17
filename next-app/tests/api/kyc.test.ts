@@ -38,10 +38,15 @@ beforeEach(() => {
   process.env.DIDIT_WEBHOOK_SECRET = 'shhh';
 });
 
-function authReq(path: string, method: string, body?: object) {
+function authReq(path: string, method: string, body?: object, headers?: Record<string, string>) {
   return new NextRequest(`http://localhost${path}`, {
     method,
-    headers: { Authorization: `Bearer ${validToken}`, 'Content-Type': 'application/json', host: 'localhost:3000' },
+    headers: {
+      Authorization: `Bearer ${validToken}`,
+      'Content-Type': 'application/json',
+      host: 'localhost:3000',
+      ...(headers ?? {}),
+    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 }
@@ -79,10 +84,13 @@ describe('POST /api/kyc/start', () => {
       status: 'Not Started',
     });
 
-    const res = await startPOST(authReq('/api/kyc/start', 'POST'));
+    const res = await startPOST(authReq('/api/kyc/start', 'POST', undefined, { 'x-forwarded-host': 'evil.example' }));
     expect(res.status).toBe(201);
     expect((await res.json()).url).toBe('https://verify.example/sess_1');
     expect(createVerificationSession).toHaveBeenCalledTimes(1);
+    expect(createVerificationSession).toHaveBeenCalledWith(
+      expect.objectContaining({ callbackUrl: 'http://localhost:3000/' }),
+    );
   });
 
   it('resumes an existing in-flight session without calling Didit again', async () => {

@@ -11,7 +11,6 @@ export interface Agent {
   status: 'ACTIVE' | 'DISABLED';
   created_at: string;
   mcp_url?: string | null;
-  api_secret?: string | null;
 }
 
 export interface ApiKey {
@@ -22,7 +21,6 @@ export interface ApiKey {
   name: string;
   platform: string;
   prefix: string;
-  plain_key?: string | null;
   scope?: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
@@ -33,7 +31,6 @@ export interface AgentKeySummary {
   id: string;
   name: string;
   prefix: string;
-  plain_key?: string | null;
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at: string | null;
@@ -129,4 +126,3 @@ export const auditApi = {
     return req<AuditLog[]>(`/api/audit-log${qs}`, token);
   },
 };
-

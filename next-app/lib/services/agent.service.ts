@@ -1,6 +1,6 @@
 import { supabase } from '../db/supabase';
 import { createApiKey } from './apiKey.service';
-import { generateAgentSecret, encryptSecret, decryptSecret } from '../utils/crypto';
+import { generateAgentSecret, encryptSecret } from '../utils/crypto';
 import { config } from '../config';
 
 export type AgentType = 'agent' | 'mcp';
@@ -17,19 +17,12 @@ export interface Agent {
 
 export interface AgentWithMcpUrl extends Agent {
   mcp_url: string | null;
-  api_secret: string | null;
-}
-
-function safeDecrypt(secretEnc: string | null | undefined): string | null {
-  if (!secretEnc || !config.ENCRYPTION_KEY) return null;
-  try { return decryptSecret(secretEnc, config.ENCRYPTION_KEY); } catch { return null; }
 }
 
 export interface AgentKeySummary {
   id: string;
   name: string;
   prefix: string;
-  plain_key: string | null;
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at: string | null;
@@ -78,10 +71,10 @@ export async function listAgentsWithMcpUrl(
   const agents = await listAgentsRaw(userId);
   return agents.map(a => {
     const { secret_enc, ...rest } = a;
+    void secret_enc;
     return {
       ...rest,
       mcp_url: toMcpUrl(rest, userHash),
-      api_secret: safeDecrypt(secret_enc),
     };
   });
 }
@@ -100,10 +93,11 @@ export async function getAgentWithKeys(
   if (!raw) return null;
 
   const { secret_enc, ...agent } = raw;
+  void secret_enc;
 
   const { data: keys } = await supabase
     .from('api_keys')
-    .select('id, name, prefix, plain_key, status, created_at, revoked_at')
+    .select('id, name, prefix, status, created_at, revoked_at')
     .eq('agent_id', agentId)
     .order('created_at', { ascending: false });
 
@@ -111,7 +105,6 @@ export async function getAgentWithKeys(
     agent: {
       ...agent,
       mcp_url: toMcpUrl(agent, userHash),
-      api_secret: safeDecrypt(secret_enc),
     },
     keys: (keys ?? []) as AgentKeySummary[],
   };

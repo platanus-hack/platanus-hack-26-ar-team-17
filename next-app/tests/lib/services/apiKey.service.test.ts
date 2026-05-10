@@ -112,19 +112,23 @@ describe('validateApiKeyAndHash', () => {
 
 describe('createApiKey', () => {
   it('creates and returns the plain key once', async () => {
-    supabase.from.mockImplementationOnce(() => ({
-      insert: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          single: jest.fn().mockResolvedValue({
-            data: { id: 'key_3', prefix: 'ak_testke' },
-            error: null,
-          }),
+    const insert = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({
+          data: { id: 'key_3', prefix: 'ak_testke' },
+          error: null,
         }),
       }),
+    });
+    supabase.from.mockImplementationOnce(() => ({
+      insert,
     }));
     const result = await createApiKey({ agentId: 'agent_1', name: 'default' });
     expect(result.plainKey.startsWith('ak_')).toBe(true);
     expect(result.id).toBe('key_3');
+    expect(insert).toHaveBeenCalledWith(
+      expect.not.objectContaining({ plain_key: expect.anything() }),
+    );
   });
 });
 
