@@ -1,12 +1,15 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
-import { getProfileByUserId } from '@/lib/services/profile.service';
 import { getLoginAttempt } from '@/lib/services/loginAttempt.service';
 import { issueUserToken } from '@/lib/services/token.service';
 import { APP_SESSION_COOKIE } from '@/lib/cookies';
 
 interface SearchParams {
+  // Didit returns these as `verificationSessionId` and `status`.
+  // We accept the snake_case forms as fallbacks for compatibility.
+  verificationSessionId?: string;
   session_id?: string;
+  status?: string;
   intent?: 'register' | 'login';
 }
 
@@ -23,9 +26,14 @@ async function setCookieAndRedirect(userId: string, target: string) {
 }
 
 export default async function DiditCallback({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { session_id, intent } = await searchParams;
+  const params = await searchParams;
+  const session_id = params.verificationSessionId ?? params.session_id;
+  const { intent, status } = params;
   if (!session_id || !intent) {
     return <main className="p-8"><h1>Verification error</h1><p>Missing session.</p></main>;
+  }
+  if (status && status !== 'Approved' && status !== 'In Review') {
+    return <main className="p-8"><h1>Verification failed</h1><p>{status}. Please try again.</p></main>;
   }
 
   if (intent === 'register') {
@@ -37,7 +45,9 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     return (
       <main className="p-8">
         <h1>Almost done</h1>
-        <p>Verification submitted. Once confirmed you'll be redirected to your dashboard.</p>
+        <p data-verification-status>
+          Verification submitted. Once confirmed you will be redirected to your dashboard.
+        </p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('register', session_id) }} />
       </main>
     );
@@ -49,13 +59,13 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
     return (
       <main className="p-8">
         <h1>Almost done</h1>
-        <p>Waiting for verification result…</p>
+        <p data-verification-status>Waiting for verification result...</p>
         <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
       </main>
     );
   }
   if (attempt.decision === 'APPROVED') {
-    await setCookieAndRedirect(attempt.user_id, '/agents');
+    await setCookieAndRedirect(attempt.user_id, '/auth/sync-session');
   }
   if (attempt.decision === 'REJECTED') {
     return <main className="p-8"><h1>Verification failed</h1><p>The face check did not match. Please try again.</p></main>;
@@ -64,7 +74,7 @@ export default async function DiditCallback({ searchParams }: { searchParams: Pr
   return (
     <main className="p-8">
       <h1>Almost done</h1>
-      <p>Waiting for verification result…</p>
+      <p data-verification-status>Waiting for verification result...</p>
       <script dangerouslySetInnerHTML={{ __html: clientPollScript('login', session_id) }} />
     </main>
   );
@@ -82,17 +92,39 @@ function clientPollScript(intent: 'register' | 'login', sessionId: string): stri
         supabaseToken = parsed.access_token || '';
       } catch {}
       let attempts = 0;
-      const maxAttempts = 10;
+      const maxAttempts = 40;
+      const description = document.querySelector('[data-verification-status]');
+      const setStatus = (text) => {
+        if (description) description.textContent = text;
+      };
       const interval = setInterval(async () => {
         attempts++;
         const params = new URLSearchParams({ intent: '${intent}', session_id: '${sessionId}' });
         if ('${intent}' === 'register' && supabaseToken) params.set('supabase_access_token', supabaseToken);
         try {
           const r = await fetch('/api/auth/finalize?' + params.toString(), { credentials: 'include' });
-          if (r.status === 200) { window.location.href = '/agents'; clearInterval(interval); return; }
+          if (r.status === 200) {
+            const body = await r.json().catch(() => ({}));
+            if (body.token && body.userId) {
+              localStorage.setItem('zero_auth', JSON.stringify({
+                token: body.token,
+                userId: body.userId,
+                kycStatus: body.kycStatus ?? null,
+                displayName: body.displayName ?? null,
+              }));
+            }
+            const next = body.kycStatus === 'VERIFIED' ? '/keys' : '/kyc';
+            window.location.href = next;
+            clearInterval(interval);
+            return;
+          }
           if (r.status === 410) { document.body.innerHTML = '<main class="p-8"><h1>Verification failed</h1><p>Please try again.</p></main>'; clearInterval(interval); return; }
+          if (r.status === 202 && attempts > 6) setStatus('Approved by Didit. Waiting for the server to finish syncing...');
         } catch (e) {}
-        if (attempts >= maxAttempts) { clearInterval(interval); }
+        if (attempts >= maxAttempts) {
+          setStatus('Verification is taking longer than expected. Refresh this page in a moment.');
+          clearInterval(interval);
+        }
       }, 1500);
     })();
   `;

@@ -22,22 +22,23 @@ jest.mock('@/lib/db/supabase', () => ({
 }));
 
 describe('token.service', () => {
-  const payload = { userId: 'user_1', apiKeyId: 'key_1' };
+  const payload = { userId: 'user_1', agentId: 'agent_1' };
 
   describe('issueToken', () => {
-    it('returns a JWT string', async () => {
-      const token = await issueToken(payload);
+    it('returns a token string and expiresAt', async () => {
+      const { token, expiresAt } = await issueToken(payload);
       expect(token.split('.').length).toBe(3);
+      expect(expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     });
 
     it('includes type: sdk_token', async () => {
-      const token = await issueToken(payload);
+      const { token } = await issueToken(payload);
       const decoded = await verifyToken(token);
       expect(decoded.type).toBe('sdk_token');
     });
 
     it('includes a jti', async () => {
-      const token = await issueToken(payload);
+      const { token } = await issueToken(payload);
       const decoded = await verifyToken(token);
       expect(decoded.jti).toBeDefined();
     });

@@ -48,9 +48,17 @@ export async function createVerificationSession(params: {
   userId: string;
   callbackUrl: string;
   workflowId?: string; // override default for biometric flows
+  portraitImage?: string; // base64-encoded reference image for biometric face match
 }): Promise<CreateSessionResponse> {
   const apiKey = requireEnv('DIDIT_API_KEY');
   const workflowId = params.workflowId ?? requireEnv('DIDIT_WORKFLOW_ID');
+
+  const body: Record<string, unknown> = {
+    workflow_id: workflowId,
+    vendor_data: params.userId,
+    callback: params.callbackUrl,
+  };
+  if (params.portraitImage) body.portrait_image = params.portraitImage;
 
   const res = await fetch(`${DIDIT_API_URL}/v3/session/`, {
     method: 'POST',
@@ -58,11 +66,7 @@ export async function createVerificationSession(params: {
       'x-api-key': apiKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      workflow_id: workflowId,
-      vendor_data: params.userId,
-      callback: params.callbackUrl,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -83,17 +87,59 @@ export async function getSession(sessionId: string): Promise<DiditSessionDetails
   return (await res.json()) as DiditSessionDetails;
 }
 
-function canonicalJSON(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return '[' + value.map(canonicalJSON).join(',') + ']';
-  const keys = Object.keys(value as Record<string, unknown>).sort();
-  return (
-    '{' +
-    keys
-      .map((k) => JSON.stringify(k) + ':' + canonicalJSON((value as Record<string, unknown>)[k]))
-      .join(',') +
-    '}'
-  );
+export interface DiditDecision {
+  session_id: string;
+  status: string;
+  id_verifications?: Array<{ portrait_image?: string; [k: string]: unknown }>;
+  [k: string]: unknown;
+}
+
+export async function getDecision(sessionId: string): Promise<DiditDecision> {
+  const apiKey = requireEnv('DIDIT_API_KEY');
+  const res = await fetch(`${DIDIT_API_URL}/v3/session/${sessionId}/decision/`, {
+    method: 'GET',
+    headers: { 'x-api-key': apiKey },
+  });
+  if (!res.ok) throw new Error(`Didit getDecision failed: ${res.status}`);
+  return (await res.json()) as DiditDecision;
+}
+
+// Pulls the portrait image captured during a prior KYC session and returns
+// it as base64 — the format Didit expects for biometric `portrait_image`.
+export async function getKycPortraitAsBase64(kycSessionId: string): Promise<string | null> {
+  const decision = await getDecision(kycSessionId);
+  const portraitUrl = decision.id_verifications?.[0]?.portrait_image;
+  if (!portraitUrl) return null;
+  const res = await fetch(portraitUrl);
+  if (!res.ok) throw new Error(`Failed to fetch portrait: ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  return buf.toString('base64');
+}
+
+function shortenFloats(data: unknown): unknown {
+  if (Array.isArray(data)) return data.map(shortenFloats);
+  if (data !== null && typeof data === 'object') {
+    return Object.fromEntries(
+      Object.entries(data as Record<string, unknown>).map(([k, v]) => [k, shortenFloats(v)])
+    );
+  }
+  if (typeof data === 'number' && !Number.isInteger(data) && data % 1 === 0) {
+    return Math.trunc(data);
+  }
+  return data;
+}
+
+function sortKeysDeep(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(sortKeysDeep);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj as Record<string, unknown>)
+      .sort()
+      .reduce((acc: Record<string, unknown>, key) => {
+        acc[key] = sortKeysDeep((obj as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+  return obj;
 }
 
 export interface SignatureVerifyParams {
@@ -123,18 +169,18 @@ export function verifyWebhookSignatureV2(params: SignatureVerifyParams): boolean
     return false;
   }
 
-  const canonical = canonicalJSON(parsed);
-  const expected = crypto.createHmac('sha256', secret).update(canonical).digest('hex');
+  // Match Didit's V2 signing: shortenFloats → sort keys → JSON.stringify (Unicode preserved)
+  const canonical = JSON.stringify(sortKeysDeep(shortenFloats(parsed)));
+  const expected = crypto.createHmac('sha256', secret).update(canonical, 'utf8').digest('hex');
 
-  const expectedBuf = Buffer.from(expected, 'hex');
-  let providedBuf: Buffer;
   try {
-    providedBuf = Buffer.from(signatureHeader, 'hex');
+    return crypto.timingSafeEqual(
+      Buffer.from(expected, 'utf8'),
+      Buffer.from(signatureHeader, 'utf8'),
+    );
   } catch {
     return false;
   }
-  if (providedBuf.length !== expectedBuf.length) return false;
-  return crypto.timingSafeEqual(expectedBuf, providedBuf);
 }
 
 export function mapDiditStatusToKyc(status: DiditStatus): 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED' {

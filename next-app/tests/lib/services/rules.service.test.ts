@@ -104,4 +104,17 @@ describe('checkGlobalRules — extended edge cases', () => {
     const result = await checkGlobalRules({ action: 'mass_send', text: 'hello world' });
     expect(result.blocked).toBe(false);
   });
+
+  it('skips FORBIDDEN_PATTERN when pattern is too long (ReDoS guard)', async () => {
+    const { supabase } = require('@/lib/db/supabase');
+    supabase.from.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({
+        data: [{ type: 'FORBIDDEN_PATTERN', value: 'a'.repeat(300) }],
+        error: null,
+      }),
+    });
+
+    const result = await checkGlobalRules({ action: 'send_message', text: 'aaa' });
+    expect(result.blocked).toBe(false);
+  });
 });

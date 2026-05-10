@@ -1,0 +1,19 @@
+import crypto from 'crypto';
+
+export function generateNonce(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function buildPayload(
+  agentId: string,
+  timestamp: string,
+  nonce: string,
+  action: string,
+  platform: string,
+): string {
+  return `${agentId}|${timestamp}|${nonce}|${action}|${platform}`;
+}
+
+export function signPayload(secret: string, payload: string): string {
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+}

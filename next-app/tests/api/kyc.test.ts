@@ -6,6 +6,11 @@ import { POST as startPOST } from '@/app/api/kyc/start/route';
 import { POST as webhookPOST } from '@/app/api/kyc/webhook/route';
 import { GET as statusGET } from '@/app/api/kyc/status/route';
 
+jest.mock('@/lib/services/token.service', () => ({
+  ...jest.requireActual('@/lib/services/token.service'),
+  isTokenRevoked: jest.fn().mockResolvedValue(false),
+}));
+
 jest.mock('@/lib/services/didit.service', () => {
   const actual = jest.requireActual('@/lib/services/didit.service');
   return {
@@ -21,7 +26,11 @@ const { supabase } = require('@/lib/db/supabase');
 const { createVerificationSession } = require('@/lib/services/didit.service');
 
 const JWT_SECRET = 'test-secret-at-least-32-characters-long-hackathon';
-const validToken = jwt.sign({ userId: 'user_1', type: 'user_session' }, JWT_SECRET, { expiresIn: '1h' });
+const validToken = jwt.sign(
+  { userId: 'user_1', type: 'user_session', jti: crypto.randomUUID() },
+  JWT_SECRET,
+  { expiresIn: '1h' },
+);
 
 beforeEach(() => {
   jest.clearAllMocks();

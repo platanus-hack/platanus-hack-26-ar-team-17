@@ -31,8 +31,12 @@ create table agents (
   user_id uuid references users(id) on delete cascade not null,
   name text not null,
   platform text not null,
-  type text not null default 'agent',
+  type text not null default 'agent' check (type in ('agent', 'mcp')),
+  scope text[] not null default '{}',
   status agent_status not null default 'ACTIVE',
+  -- HMAC secret for SDK authentication (AES-256-GCM encrypted, format: iv_hex:authTag_hex:ciphertext_hex)
+  secret_enc text,
+  secret_prefix text,             -- first 8 chars of raw secret for display only
   created_at timestamptz default now()
 );
 create index on agents(user_id);
@@ -43,6 +47,7 @@ create table api_keys (
   name text not null,
   key_hash text unique not null,
   prefix text not null,
+  scope text[] not null default '{}',
   status key_status not null default 'ACTIVE',
   created_at timestamptz default now(),
   revoked_at timestamptz
@@ -52,7 +57,6 @@ create index on api_keys(agent_id);
 
 create table audit_logs (
   id uuid primary key default gen_random_uuid(),
-  -- FKs are nullable because BLOCKED_INVALID_KEY logs have no real agent/key/user
   agent_id uuid references agents(id),
   api_key_id uuid references api_keys(id),
   user_id uuid references users(id),
@@ -61,6 +65,7 @@ create table audit_logs (
   platform text not null,
   result log_result not null,
   rule_violated text,
+  executed_at timestamptz not null default now(),
   prev_checksum text not null,
   checksum text not null,
   created_at timestamptz default now()
@@ -77,20 +82,17 @@ create table global_rules (
   created_at timestamptz default now()
 );
 
--- Replaces Redis SET for JWT revocation
 create table revoked_tokens (
   jti text primary key,
   revoked_at timestamptz default now()
 );
 
--- Replaces Redis INCR for rate limiting (60-second sliding window)
 create table rate_limits (
   ip text primary key,
   count integer not null default 0,
   window_start timestamptz not null default now()
 );
 
--- Pending Didit biometric login attempts. Webhook resolves the decision.
 create table didit_login_attempts (
   session_id text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -99,3 +101,16 @@ create table didit_login_attempts (
   decided_at timestamptz
 );
 create index on didit_login_attempts(user_id);
+
+-- Nonce store for HMAC replay prevention (one-use, expires with the request window)
+create table nonces (
+  nonce text primary key,
+  agent_id uuid not null references agents(id) on delete cascade,
+  expires_at timestamptz not null,
+  created_at timestamptz default now()
+);
+create index nonces_expires_at_idx on nonces(expires_at);
+
+-- Migration: run these on an existing database
+-- alter table agents add column if not exists secret_enc text;
+-- alter table agents add column if not exists secret_prefix text;

@@ -53,20 +53,50 @@ const RAIL_WIDTH = 14;
 const SIDEBAR_WIDTH = 224;
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { token, kycStatus, logout } = useAuth();
+  const { token, kycStatus, displayName, logout, login } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cookieSyncDone, setCookieSyncDone] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!mounted) return;
+    if (token) {
+      setCookieSyncDone(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/auth/session', { credentials: 'include' });
+        if (cancelled) return;
+        if (r.ok) {
+          const body = (await r.json()) as {
+            token: string;
+            userId: string;
+            kycStatus: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
+            displayName?: string | null;
+          };
+          login(body.token, body.userId, body.kycStatus, body.displayName ?? null);
+        }
+      } finally {
+        if (!cancelled) setCookieSyncDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted, token, login]);
+
+  useEffect(() => {
+    if (!mounted || !cookieSyncDone) return;
     if (!token) { router.push('/login'); return; }
     if (kycStatus && kycStatus !== 'VERIFIED') router.push('/kyc');
-  }, [mounted, token, kycStatus, router]);
+  }, [mounted, cookieSyncDone, token, kycStatus, router]);
 
   useEffect(() => {
     return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
@@ -84,7 +114,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     closeTimer.current = setTimeout(() => setExpanded(false), 180);
   }
 
-  if (!mounted || !token) return (
+  if (!mounted || !cookieSyncDone || !token) return (
     <div style={{ minHeight: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <span style={{ ...mono, fontSize: 12, color: '#3a3a3a' }}>loading…</span>
     </div>
@@ -161,6 +191,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <p style={{ ...mono, fontSize: 12, color: 'var(--text-faint)', marginTop: 7, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             dashboard
           </p>
+          {displayName && (
+            <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.35 }}>
+              {displayName}
+            </p>
+          )}
         </div>
 
         {/* Nav */}

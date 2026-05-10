@@ -1,5 +1,6 @@
 import { supabase } from '../db/supabase';
 import { createApiKey } from './apiKey.service';
+import { generateAgentSecret, encryptSecret } from '../utils/crypto';
 import { config } from '../config';
 
 export type AgentType = 'agent' | 'mcp';
@@ -45,6 +46,15 @@ export async function listAgents(userId: string): Promise<Agent[]> {
   return (data ?? []) as Agent[];
 }
 
+export async function countAgentsForUser(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('agents')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function listAgentsWithMcpUrl(
   userId: string,
   userHash: string | null,
@@ -88,20 +98,42 @@ export async function createAgent(params: {
   name: string;
   type: AgentType;
   platform: string;
-}): Promise<{ agent: Agent; key: { id: string; plainKey: string; prefix: string } | null }> {
+  keyName?: string;
+  keyScope?: string[];
+}): Promise<{
+  agent: Agent;
+  key: { id: string; plainKey: string; prefix: string } | null;
+  apiSecret: string;
+}> {
+  const apiSecret = generateAgentSecret();
+  const secretEnc = config.ENCRYPTION_KEY
+    ? encryptSecret(apiSecret, config.ENCRYPTION_KEY)
+    : null;
+  const secretPrefix = apiSecret.slice(0, 8);
+
   const { data: agent, error } = await supabase
     .from('agents')
-    .insert({ user_id: params.userId, name: params.name, type: params.type, platform: params.platform })
+    .insert({
+      user_id: params.userId,
+      name: params.name,
+      type: params.type,
+      platform: params.platform,
+      secret_enc: secretEnc,
+      secret_prefix: secretPrefix,
+    })
     .select()
     .single<Agent>();
 
   if (error || !agent) throw error ?? new Error('Failed to create agent');
 
-  // MCP agents don't need an API key — they auth via user hash in URL
-  if (params.type === 'mcp') return { agent, key: null };
+  if (params.type === 'mcp') return { agent, key: null, apiSecret };
 
-  const key = await createApiKey({ agentId: agent.id, name: 'default' });
-  return { agent, key };
+  const key = await createApiKey({
+    agentId: agent.id,
+    name: params.keyName ?? 'default',
+    scope: params.keyScope ?? [],
+  });
+  return { agent, key, apiSecret };
 }
 
 export async function disableAgent(agentId: string, userId: string): Promise<void> {

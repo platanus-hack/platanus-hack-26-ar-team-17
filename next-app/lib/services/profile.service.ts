@@ -15,6 +15,7 @@ export interface ProfileInput {
   picture_url: string | null;
   dni: string | null;
   didit_kyc_session_id: string;
+  didit_kyc_session_url?: string | null;
   verification_status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
@@ -33,6 +34,7 @@ type UsersRow = {
   picture_url: string | null;
   dni: string | null;
   didit_session_id: string | null;
+  didit_session_url: string | null;
   kyc_status: 'PENDING' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
   created_at?: string;
   kyc_verified_at?: string | null;
@@ -58,6 +60,7 @@ function rowToProfile(row: UsersRow): Profile {
     picture_url: row.picture_url,
     dni: row.dni,
     didit_kyc_session_id: row.didit_session_id ?? '',
+    didit_kyc_session_url: row.didit_session_url,
     verification_status: statusFromDb(row.kyc_status),
     enrolled_at: row.created_at,
   };
@@ -72,6 +75,37 @@ export async function getProfileByUserId(authUserId: string): Promise<Profile | 
   return data ? rowToProfile(data as UsersRow) : null;
 }
 
+/** Campos para persistir sesión en el cliente (cookie + localStorage). */
+export async function getSessionFieldsForAuthUser(
+  authUserId: string,
+): Promise<{ kycStatus: UsersRow['kyc_status']; displayName: string } | null> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('kyc_status, full_name, email')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { kyc_status: UsersRow['kyc_status']; full_name: string | null; email: string };
+  const displayName = (row.full_name && row.full_name.trim()) || row.email || 'Account';
+  return { kycStatus: row.kyc_status, displayName };
+}
+
+/** Maps Supabase Auth user id → `users.id` (FK target for agents, audit_logs, etc.). */
+export async function resolveInternalUserId(authUserId: string): Promise<string | null> {
+  const profile = await getProfileByUserId(authUserId);
+  return profile?.id ?? null;
+}
+
+/** Resuelve `users.id` a partir del hash estable de cuenta (SDK / aprovisionamiento CLI). */
+export async function resolveInternalUserIdByHash(userHash: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('users')
+    .select('id')
+    .eq('hash', userHash)
+    .maybeSingle<{ id: string }>();
+  return data?.id ?? null;
+}
+
 export async function createProfile(input: ProfileInput): Promise<Profile> {
   const dbStatus = statusToDb(input.verification_status ?? 'PENDING');
   const { data, error } = await supabase
@@ -84,6 +118,7 @@ export async function createProfile(input: ProfileInput): Promise<Profile> {
       picture_url: input.picture_url,
       dni: input.dni,
       didit_session_id: input.didit_kyc_session_id,
+      didit_session_url: input.didit_kyc_session_url ?? null,
       kyc_status: dbStatus,
     })
     .select()

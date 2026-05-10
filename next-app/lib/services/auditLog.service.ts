@@ -3,11 +3,11 @@ import { supabase } from '../db/supabase';
 
 interface LogParams {
   agentId:    string | null;
-  apiKeyId:   string | null;
+  apiKeyId?:  string | null;
   userId:     string | null;
   action:     string;
   platform:   string;
-  result:     'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
+  result:     'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   ruleViolated?: string;
   userInput?:  string;
   executedAt?: string; // ISO timestamp from SDK (when agent ran the action)

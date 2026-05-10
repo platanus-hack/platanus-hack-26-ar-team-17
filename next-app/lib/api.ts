@@ -21,6 +21,7 @@ export interface ApiKey {
   name: string;
   platform: string;
   prefix: string;
+  scope?: string[];
   status: 'ACTIVE' | 'REVOKED';
   created_at: string;
   revoked_at?: string | null;
@@ -42,10 +43,16 @@ export interface AuditLog {
   user_id?: string | null;
   action: string;
   platform: string;
-  result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   user_input?: string | null;
+  result: 'SUCCESS' | 'BLOCKED_INVALID_KEY' | 'BLOCKED_SCOPE' | 'BLOCKED_RULE' | 'BLOCKED_REVOKED';
   rule_violated?: string | null;
   created_at: string;
+}
+
+export interface AuthLoginResponse {
+  mode: 'kyc' | 'biometric';
+  verification_url: string;
+  session_id: string;
 }
 
 async function req<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
@@ -67,15 +74,10 @@ async function req<T>(path: string, token: string | null, options: RequestInit =
 }
 
 export const authApi = {
-  login: (email: string, password: string) =>
-    req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/login', null, {
+  loginWithOAuth: (supabase_access_token: string) =>
+    req<AuthLoginResponse>('/api/auth/login', null, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-  register: (email: string, password: string, full_name?: string, company?: string) =>
-    req<{ token: string; userId: string; kycStatus: KycStatus }>('/api/auth/register', null, {
-      method: 'POST',
-      body: JSON.stringify({ email, password, full_name, company }),
+      body: JSON.stringify({ supabase_access_token }),
     }),
 };
 
