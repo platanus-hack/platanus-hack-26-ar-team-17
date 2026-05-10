@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PLATFORM_API_URL = void 0;
 exports.detectPlatform = detectPlatform;
 exports.detectAction = detectAction;
-exports.PLATFORM_API_URL = 'https://next-app-ochre-zeta.vercel.app';
+exports.PLATFORM_API_URL = 'https://platanus-hack-26-ar-team-17.vercel.app';
 function detectPlatform() {
     if (typeof process === 'undefined')
         return 'custom';

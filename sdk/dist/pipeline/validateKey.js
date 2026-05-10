@@ -3,14 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validate = validate;
 const client_1 = require("../http/client");
 const hmac_1 = require("../crypto/hmac");
-const jwtCache_1 = require("../cache/jwtCache");
+const cache_1 = require("../auth/cache");
 async function validate(params) {
     const { agentId, apiSecret, action, platform, platformApiUrl } = params;
-    // Return cached JWT if still valid — avoids HMAC round-trip
-    const cached = (0, jwtCache_1.getCachedToken)(agentId);
+    const cached = (0, cache_1.getCachedToken)();
     if (cached)
         return { allowed: true, token: cached };
-    // Full HMAC authentication flow
     const nonce = (0, hmac_1.generateNonce)();
     const timestamp = new Date().toISOString();
     const payload = (0, hmac_1.buildPayload)(agentId, timestamp, nonce, action, platform);
@@ -24,7 +22,7 @@ async function validate(params) {
         signature,
     });
     if (res.allowed && res.token && res.expiresAt) {
-        (0, jwtCache_1.setCachedToken)(agentId, res.token, res.expiresAt);
+        (0, cache_1.setCachedToken)(res.token, res.expiresAt);
     }
     return { allowed: res.allowed, token: res.token };
 }
